@@ -772,16 +772,16 @@ function App() {
                                                     <h4 className="text-lg font-bold text-slate-900">Questionnaire</h4>
                                                 </div>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                    <QuestionItem question="Overtime / Weekends" answer={q.q1_overtime_or_weekends} />
-                                                    <QuestionItem question="Driving License" answer={q.q2_driving_license} />
-                                                    <QuestionItem question="Own Car" answer={q.q3_own_car} />
-                                                    <QuestionItem question="Willing to Travel" answer={q.q4_willing_to_travel} />
-                                                    <QuestionItem question="Right to Work" answer={q.q5_legal_right_to_work} />
-                                                    <QuestionItem question="Degree / Education" answer={q.q6_bachelor_degree_or_required_education} />
-                                                    <QuestionItem question="Years Experience" answer={q.q7_required_years_experience} />
-                                                    <QuestionItem question="Full Time" answer={q.q8_willing_full_time} />
-                                                    <QuestionItem question="Relocate" answer={q.q9_willing_to_relocate} />
-                                                    <QuestionItem question="Background Check" answer={q.q10_comfortable_with_background_checks} />
+                                                    <QuestionItem question="Are you willing to work overtime or on weekends if required" answer={q.q1_overtime_or_weekends} />
+                                                    <QuestionItem question="Do you have driving License" answer={q.q2_driving_license} />
+                                                    <QuestionItem question="Do you have car" answer={q.q3_own_car} />
+                                                    <QuestionItem question="Are you willing to Travel" answer={q.q4_willing_to_travel} />
+                                                    <QuestionItem question="Do you have the legal right to work in this country" answer={q.q5_legal_right_to_work} />
+                                                    <QuestionItem question="Do you have a bachelor’s degree (or the required education level)" answer={q.q6_bachelor_degree_or_required_education} />
+                                                    <QuestionItem question="Do you have the required years of experience for this role" answer={q.q7_required_years_experience} />
+                                                    <QuestionItem question="Are you willing to work full-time" answer={q.q8_willing_full_time} />
+                                                    <QuestionItem question="Are you willing to relocate if necessary" answer={q.q9_willing_to_relocate} />
+                                                    <QuestionItem question="Do you consent to a background check as part of the hiring process" answer={q.q10_comfortable_with_background_checks} />
                                                 </div>
                                             </div>
                                         )}
