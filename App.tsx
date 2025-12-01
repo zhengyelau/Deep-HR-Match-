@@ -752,11 +752,8 @@ function App() {
                                             <div><div className="text-xs font-bold text-slate-500">Age</div><div className="text-sm font-medium text-slate-900">{res.candidate.age}</div></div>
                                             <div><div className="text-xs font-bold text-slate-500">Gender</div><div className="text-sm font-medium text-slate-900">{res.candidate.gender}</div></div>
                                             <div><div className="text-xs font-bold text-slate-500">DOB</div><div className="text-sm font-medium text-slate-900">{res.candidate.date_of_birth}</div></div>
-                                            <div><div className="text-xs font-bold text-slate-500">Ethnicity</div><div className="text-sm font-medium text-slate-900">{res.candidate.ethnicity}</div></div>
                                             
                                             {/* Row 2 */}
-                                            <div><div className="text-xs font-bold text-slate-500">Race</div><div className="text-sm font-medium text-slate-900">{res.candidate.race}</div></div>
-                                            <div><div className="text-xs font-bold text-slate-500">Religion</div><div className="text-sm font-medium text-slate-900">{res.candidate.religion || 'N/A'}</div></div>
                                             <div><div className="text-xs font-bold text-slate-500">Nationality</div><div className="text-sm font-medium text-slate-900">{res.candidate.nationality}</div></div>
                                             <div><div className="text-xs font-bold text-slate-500">Birth Country</div><div className="text-sm font-medium text-slate-900">{res.candidate.country_of_birth}</div></div>
                                             
@@ -779,7 +776,7 @@ function App() {
                                         <div className="bg-cyan-50 rounded-lg border border-cyan-100 p-5">
                                             <div className="flex items-center gap-2 mb-4">
                                                 <FileQuestion className="text-cyan-600" size={20} />
-                                                <h4 className="text-lg font-bold text-slate-900">Screening Questionnaire</h4>
+                                                <h4 className="text-lg font-bold text-slate-900">Questionnaire</h4>
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                 <QuestionItem question="Overtime / Weekends" answer={q.q1_overtime_or_weekends} />
