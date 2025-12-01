@@ -70,14 +70,19 @@ export const Histogram: React.FC<HistogramProps> = ({
       });
     }
 
+    let entries = Array.from(map.entries());
+
+    // Filter out empty buckets to hide columns with no data
+    entries = entries.filter(([_, items]) => items.length > 0);
+
     // Sort categories by count desc if not range
     if (bucketType === 'category') {
-      return Array.from(map.entries())
+      return entries
         .sort((a, b) => b[1].length - a[1].length)
         .slice(0, 10); // Limit to top 10 columns for readability
     }
 
-    return Array.from(map.entries());
+    return entries;
   }, [data, bucketType, rangeBuckets, getValue, categoryParser]);
 
   // Find max count for Y-axis scaling
