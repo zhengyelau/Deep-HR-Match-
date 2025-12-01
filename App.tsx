@@ -413,8 +413,8 @@ function App() {
 
                 <div className="space-y-8 pb-20" ref={chartsRef}>
                   
-                  {/* Grid Layout for Charts */}
-                  <div className="grid lg:grid-cols-2 gap-8">
+                  {/* Grid Layout for Charts - Stacked Vertically */}
+                  
                     <div ref={chartRefs.salary}>
                       <Histogram
                         title="Expected Salary Distribution"
@@ -461,9 +461,7 @@ function App() {
                         getValue={(c) => c.candidate.age}
                       />
                     </div>
-                  </div>
-
-                  <div className="grid lg:grid-cols-2 gap-8">
+                  
                      <div ref={chartRefs.avail}>
                         <Histogram
                             title="Availability Distribution"
@@ -494,10 +492,8 @@ function App() {
                           getValue={(c) => c.candidate.past_current_education_subject || 'Unknown'}
                         />
                       </div>
-                  </div>
 
-                  <div className="grid lg:grid-cols-3 gap-8">
-                    <div ref={chartRefs.major} className="lg:col-span-1">
+                    <div ref={chartRefs.major}>
                       <Histogram
                         title="University Major Distribution"
                         data={matchResults}
@@ -508,7 +504,7 @@ function App() {
                         getValue={(c) => c.candidate.past_current_university_major || 'Unknown'}
                       />
                     </div>
-                    <div ref={chartRefs.func} className="lg:col-span-1">
+                    <div ref={chartRefs.func}>
                       <Histogram
                         title="Past Functional Skills 1 Distribution"
                         data={matchResults}
@@ -519,7 +515,7 @@ function App() {
                         getValue={(c) => c.candidate.past_current_function || 'Unknown'}
                       />
                     </div>
-                    <div ref={chartRefs.domain} className="lg:col-span-1">
+                    <div ref={chartRefs.domain}>
                       <Histogram
                         title="Past Domain Knowledge 1 Distribution"
                         data={matchResults}
@@ -537,7 +533,6 @@ function App() {
                         }}
                       />
                     </div>
-                  </div>
                   
                   {selectedCount > 0 && (
                     <div className="mt-12 bg-white border border-slate-200 rounded-xl p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 transition-all hover:shadow-md animate-in fade-in slide-in-from-bottom-4">
