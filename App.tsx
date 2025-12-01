@@ -713,7 +713,7 @@ function App() {
                                     {/* PURPLE SECTION: Matching Details */}
                                     <div className="bg-purple-50 rounded-lg border border-purple-100 p-5 mb-4">
                                         <h4 className="text-lg font-bold text-slate-900 mb-4">Matching Details</h4>
-                                        <h5 className="text-base font-bold text-slate-700 mb-2">What Matched</h5>
+                                        <h5 className="text-base font-bold text-slate-700 mb-2">Number of Matches</h5>
                                         
                                         <div className="mb-2">
                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">PAST & CURRENT</span>
