@@ -749,7 +749,7 @@ function App() {
                                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                                         {/* ORANGE SECTION: Elimination Criteria */}
                                         <div className="bg-orange-50 rounded-lg border border-orange-100 p-5 h-full">
-                                             <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria & Profile</h4>
+                                             <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria - basic information</h4>
                                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                 {/* Row 1 */}
                                                 <CriteriaItem label="Age" value={res.candidate.age} />
@@ -780,8 +780,7 @@ function App() {
                                         {q && (
                                             <div className="bg-cyan-50 rounded-lg border border-cyan-100 p-5 h-full">
                                                 <div className="flex items-center gap-2 mb-4">
-                                                    <FileQuestion className="text-cyan-600" size={20} />
-                                                    <h4 className="text-lg font-bold text-slate-900">Questionnaire</h4>
+                                                    <h4 className="text-lg font-bold text-slate-900">Elimination Criteria - yes or no question</h4>
                                                 </div>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                     <QuestionItem question="Are you willing to work overtime or on weekends if required" answer={q.q1_overtime_or_weekends} />
