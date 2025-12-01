@@ -744,54 +744,56 @@ function App() {
                                         </div>
                                     </div>
 
-                                    {/* ORANGE SECTION: Elimination Criteria */}
-                                    <div className="bg-orange-50 rounded-lg border border-orange-100 p-5 mb-4">
-                                         <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria & Profile</h4>
-                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
-                                            {/* Row 1 */}
-                                            <div><div className="text-xs font-bold text-slate-500">Age</div><div className="text-sm font-medium text-slate-900">{res.candidate.age}</div></div>
-                                            <div><div className="text-xs font-bold text-slate-500">Gender</div><div className="text-sm font-medium text-slate-900">{res.candidate.gender}</div></div>
-                                            <div><div className="text-xs font-bold text-slate-500">DOB</div><div className="text-sm font-medium text-slate-900">{res.candidate.date_of_birth}</div></div>
-                                            
-                                            {/* Row 2 */}
-                                            <div><div className="text-xs font-bold text-slate-500">Nationality</div><div className="text-sm font-medium text-slate-900">{res.candidate.nationality}</div></div>
-                                            <div><div className="text-xs font-bold text-slate-500">Birth Country</div><div className="text-sm font-medium text-slate-900">{res.candidate.country_of_birth}</div></div>
-                                            
-                                            {/* Row 3 */}
-                                            <div><div className="text-xs font-bold text-slate-500">Current Country</div><div className="text-sm font-medium text-slate-900">{res.candidate.current_country}</div></div>
-                                            <div><div className="text-xs font-bold text-slate-500">Min Salary</div><div className="text-sm font-medium text-slate-900">${res.candidate.minimum_expected_salary_monthly.toLocaleString()}</div></div>
-                                            <div><div className="text-xs font-bold text-slate-500">Availability</div><div className="text-sm font-medium text-slate-900">{res.candidate.availability}</div></div>
-                                            <div><div className="text-xs font-bold text-slate-500">Visa Status</div><div className="text-sm font-medium text-slate-900">{res.candidate.visa_status}</div></div>
+                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                        {/* ORANGE SECTION: Elimination Criteria */}
+                                        <div className="bg-orange-50 rounded-lg border border-orange-100 p-5 h-full">
+                                             <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria & Profile</h4>
+                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
+                                                {/* Row 1 */}
+                                                <div><div className="text-xs font-bold text-slate-500">Age</div><div className="text-sm font-medium text-slate-900">{res.candidate.age}</div></div>
+                                                <div><div className="text-xs font-bold text-slate-500">Gender</div><div className="text-sm font-medium text-slate-900">{res.candidate.gender}</div></div>
+                                                <div><div className="text-xs font-bold text-slate-500">DOB</div><div className="text-sm font-medium text-slate-900">{res.candidate.date_of_birth}</div></div>
+                                                
+                                                {/* Row 2 */}
+                                                <div><div className="text-xs font-bold text-slate-500">Nationality</div><div className="text-sm font-medium text-slate-900">{res.candidate.nationality}</div></div>
+                                                <div><div className="text-xs font-bold text-slate-500">Birth Country</div><div className="text-sm font-medium text-slate-900">{res.candidate.country_of_birth}</div></div>
+                                                
+                                                {/* Row 3 */}
+                                                <div><div className="text-xs font-bold text-slate-500">Current Country</div><div className="text-sm font-medium text-slate-900">{res.candidate.current_country}</div></div>
+                                                <div><div className="text-xs font-bold text-slate-500">Min Salary</div><div className="text-sm font-medium text-slate-900">${res.candidate.minimum_expected_salary_monthly.toLocaleString()}</div></div>
+                                                <div><div className="text-xs font-bold text-slate-500">Availability</div><div className="text-sm font-medium text-slate-900">{res.candidate.availability}</div></div>
+                                                <div><div className="text-xs font-bold text-slate-500">Visa Status</div><div className="text-sm font-medium text-slate-900">{res.candidate.visa_status}</div></div>
 
-                                            {/* Row 4: New Profile Data */}
-                                            {res.candidate.fitness_level && <div><div className="text-xs font-bold text-slate-500">Fitness</div><div className="text-sm font-medium text-slate-900">{res.candidate.fitness_level}</div></div>}
-                                            {res.candidate.height_cm && <div><div className="text-xs font-bold text-slate-500">Height/Weight</div><div className="text-sm font-medium text-slate-900">{res.candidate.height_cm}cm / {res.candidate.weight_kg}kg</div></div>}
-                                            <div className="md:col-span-1"><div className="text-xs font-bold text-slate-500">Email</div><div className="text-sm font-medium text-slate-900 truncate" title={res.candidate.email}>{res.candidate.email}</div></div>
-                                            <div className="md:col-span-1"><div className="text-xs font-bold text-slate-500">Phone</div><div className="text-sm font-medium text-slate-900">{res.candidate.phone}</div></div>
-                                         </div>
-                                    </div>
-                                    
-                                    {/* CYAN SECTION: Questionnaire */}
-                                    {q && (
-                                        <div className="bg-cyan-50 rounded-lg border border-cyan-100 p-5">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <FileQuestion className="text-cyan-600" size={20} />
-                                                <h4 className="text-lg font-bold text-slate-900">Questionnaire</h4>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                <QuestionItem question="Overtime / Weekends" answer={q.q1_overtime_or_weekends} />
-                                                <QuestionItem question="Driving License" answer={q.q2_driving_license} />
-                                                <QuestionItem question="Own Car" answer={q.q3_own_car} />
-                                                <QuestionItem question="Willing to Travel" answer={q.q4_willing_to_travel} />
-                                                <QuestionItem question="Right to Work" answer={q.q5_legal_right_to_work} />
-                                                <QuestionItem question="Degree / Education" answer={q.q6_bachelor_degree_or_required_education} />
-                                                <QuestionItem question="Years Experience" answer={q.q7_required_years_experience} />
-                                                <QuestionItem question="Full Time" answer={q.q8_willing_full_time} />
-                                                <QuestionItem question="Relocate" answer={q.q9_willing_to_relocate} />
-                                                <QuestionItem question="Background Check" answer={q.q10_comfortable_with_background_checks} />
-                                            </div>
+                                                {/* Row 4: New Profile Data */}
+                                                {res.candidate.fitness_level && <div><div className="text-xs font-bold text-slate-500">Fitness</div><div className="text-sm font-medium text-slate-900">{res.candidate.fitness_level}</div></div>}
+                                                {res.candidate.height_cm && <div><div className="text-xs font-bold text-slate-500">Height/Weight</div><div className="text-sm font-medium text-slate-900">{res.candidate.height_cm}cm / {res.candidate.weight_kg}kg</div></div>}
+                                                <div className="md:col-span-1"><div className="text-xs font-bold text-slate-500">Email</div><div className="text-sm font-medium text-slate-900 break-all" title={res.candidate.email}>{res.candidate.email}</div></div>
+                                                <div className="md:col-span-1"><div className="text-xs font-bold text-slate-500">Phone</div><div className="text-sm font-medium text-slate-900">{res.candidate.phone}</div></div>
+                                             </div>
                                         </div>
-                                    )}
+                                        
+                                        {/* CYAN SECTION: Questionnaire */}
+                                        {q && (
+                                            <div className="bg-cyan-50 rounded-lg border border-cyan-100 p-5 h-full">
+                                                <div className="flex items-center gap-2 mb-4">
+                                                    <FileQuestion className="text-cyan-600" size={20} />
+                                                    <h4 className="text-lg font-bold text-slate-900">Questionnaire</h4>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                    <QuestionItem question="Overtime / Weekends" answer={q.q1_overtime_or_weekends} />
+                                                    <QuestionItem question="Driving License" answer={q.q2_driving_license} />
+                                                    <QuestionItem question="Own Car" answer={q.q3_own_car} />
+                                                    <QuestionItem question="Willing to Travel" answer={q.q4_willing_to_travel} />
+                                                    <QuestionItem question="Right to Work" answer={q.q5_legal_right_to_work} />
+                                                    <QuestionItem question="Degree / Education" answer={q.q6_bachelor_degree_or_required_education} />
+                                                    <QuestionItem question="Years Experience" answer={q.q7_required_years_experience} />
+                                                    <QuestionItem question="Full Time" answer={q.q8_willing_full_time} />
+                                                    <QuestionItem question="Relocate" answer={q.q9_willing_to_relocate} />
+                                                    <QuestionItem question="Background Check" answer={q.q10_comfortable_with_background_checks} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
 
                                 </div>
                             );
