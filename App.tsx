@@ -662,15 +662,7 @@ function App() {
                                                     <div className="flex items-center gap-1 text-slate-600 font-medium">
                                                         Match Score:
                                                         <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-sm font-bold">
-                                                            {res.score} / {res.details.breakdown.reduce((acc, b) => acc + (b.score > 0 ? 4 : 0), 0) * 10 || 100} {/* Approximation for max potential */}
-                                                        </span>
-                                                    </div>
-                                                    <div className="h-4 w-px bg-slate-300 mx-1"></div>
-                                                    {/* Percentage */}
-                                                    <div className="flex items-center gap-1 text-slate-600 font-medium">
-                                                        Percentage:
-                                                        <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-sm font-bold">
-                                                            {res.percentage}%
+                                                            {res.score} {/* Approximation for max potential */}
                                                         </span>
                                                     </div>
                                                 </div>
