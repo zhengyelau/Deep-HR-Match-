@@ -306,6 +306,16 @@ function App() {
     </div>
   );
 
+  // Helper for Elimination Criteria items - NEW CARD STYLE
+  const CriteriaItem = ({ label, value, className = '' }: { label: string, value: React.ReactNode, className?: string }) => (
+     <div className={`bg-white p-3.5 rounded-lg border border-orange-100 shadow-sm flex flex-col gap-1.5 h-full ${className}`}>
+        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">{label}</span>
+        <div className="font-bold text-sm text-slate-900 break-words">
+            {value ?? '-'}
+        </div>
+     </div>
+  );
+
   // Helper for Questionnaire items
   const QuestionItem = ({ question, answer }: { question: string, answer: string }) => {
      if (!answer) return null;
@@ -740,27 +750,29 @@ function App() {
                                         {/* ORANGE SECTION: Elimination Criteria */}
                                         <div className="bg-orange-50 rounded-lg border border-orange-100 p-5 h-full">
                                              <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria & Profile</h4>
-                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
+                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                 {/* Row 1 */}
-                                                <div><div className="text-xs font-bold text-slate-500">Age</div><div className="text-sm font-medium text-slate-900">{res.candidate.age}</div></div>
-                                                <div><div className="text-xs font-bold text-slate-500">Gender</div><div className="text-sm font-medium text-slate-900">{res.candidate.gender}</div></div>
-                                                <div><div className="text-xs font-bold text-slate-500">DOB</div><div className="text-sm font-medium text-slate-900">{res.candidate.date_of_birth}</div></div>
+                                                <CriteriaItem label="Age" value={res.candidate.age} />
+                                                <CriteriaItem label="Gender" value={res.candidate.gender} />
+                                                <CriteriaItem label="DOB" value={res.candidate.date_of_birth} />
                                                 
                                                 {/* Row 2 */}
-                                                <div><div className="text-xs font-bold text-slate-500">Nationality</div><div className="text-sm font-medium text-slate-900">{res.candidate.nationality}</div></div>
-                                                <div><div className="text-xs font-bold text-slate-500">Birth Country</div><div className="text-sm font-medium text-slate-900">{res.candidate.country_of_birth}</div></div>
+                                                <CriteriaItem label="Nationality" value={res.candidate.nationality} />
+                                                <CriteriaItem label="Birth Country" value={res.candidate.country_of_birth} />
                                                 
                                                 {/* Row 3 */}
-                                                <div><div className="text-xs font-bold text-slate-500">Current Country</div><div className="text-sm font-medium text-slate-900">{res.candidate.current_country}</div></div>
-                                                <div><div className="text-xs font-bold text-slate-500">Min Salary</div><div className="text-sm font-medium text-slate-900">${res.candidate.minimum_expected_salary_monthly.toLocaleString()}</div></div>
-                                                <div><div className="text-xs font-bold text-slate-500">Availability</div><div className="text-sm font-medium text-slate-900">{res.candidate.availability}</div></div>
-                                                <div><div className="text-xs font-bold text-slate-500">Visa Status</div><div className="text-sm font-medium text-slate-900">{res.candidate.visa_status}</div></div>
+                                                <CriteriaItem label="Current Country" value={res.candidate.current_country} />
+                                                <CriteriaItem label="Min Salary" value={`$${res.candidate.minimum_expected_salary_monthly.toLocaleString()}`} />
+                                                <CriteriaItem label="Availability" value={res.candidate.availability} />
+                                                <CriteriaItem label="Visa Status" value={res.candidate.visa_status} />
 
                                                 {/* Row 4: New Profile Data */}
-                                                {res.candidate.fitness_level && <div><div className="text-xs font-bold text-slate-500">Fitness</div><div className="text-sm font-medium text-slate-900">{res.candidate.fitness_level}</div></div>}
-                                                {res.candidate.height_cm && <div><div className="text-xs font-bold text-slate-500">Height/Weight</div><div className="text-sm font-medium text-slate-900">{res.candidate.height_cm}cm / {res.candidate.weight_kg}kg</div></div>}
-                                                <div className="md:col-span-1"><div className="text-xs font-bold text-slate-500">Email</div><div className="text-sm font-medium text-slate-900 break-all" title={res.candidate.email}>{res.candidate.email}</div></div>
-                                                <div className="md:col-span-1"><div className="text-xs font-bold text-slate-500">Phone</div><div className="text-sm font-medium text-slate-900">{res.candidate.phone}</div></div>
+                                                {res.candidate.fitness_level && <CriteriaItem label="Fitness" value={res.candidate.fitness_level} />}
+                                                {res.candidate.height_cm && <CriteriaItem label="Height" value={`${res.candidate.height_cm} cm`} />}
+                                                {res.candidate.weight_kg && <CriteriaItem label="Weight" value={`${res.candidate.weight_kg} kg`} />}
+                                                
+                                                <CriteriaItem label="Email" value={res.candidate.email} className="md:col-span-2 break-all" />
+                                                <CriteriaItem label="Phone" value={res.candidate.phone} className="md:col-span-2" />
                                              </div>
                                         </div>
                                         
