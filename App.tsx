@@ -7,7 +7,6 @@ import { Histogram } from './components/Charts';
 import { candidatesService } from './services/candidatesService';
 import { employersService } from './services/employersService';
 import { matchResultsService } from './services/matchResultsService';
-import { saveToMatchingTable } from './utils/db';
 
 function App() {
   // State
@@ -143,13 +142,11 @@ function App() {
           setCandidates(json);
           setCandidatesUploaded(true);
           await candidatesService.saveCandidates(json);
-          await saveToMatchingTable('candidates', json);
         } else {
           if (!Array.isArray(json)) throw new Error("Employers must be an array");
           setEmployers(json);
           setEmployersUploaded(true);
           await employersService.saveEmployers(json);
-          await saveToMatchingTable('employers', json);
         }
         setIsSaving(false);
       } catch (err) {
