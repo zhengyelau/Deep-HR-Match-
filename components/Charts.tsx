@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { MatchResult } from '../types';
+import { Info, ArrowUp } from 'lucide-react';
 
 interface HistogramProps {
   data: MatchResult[];
@@ -101,7 +102,24 @@ export const Histogram: React.FC<HistogramProps> = ({
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col h-[400px] relative">
-      <h3 className="text-lg font-bold text-slate-900 mb-6">{title}</h3>
+      <div className="flex justify-between items-start mb-6">
+        <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+        {bucketType === 'range' && (
+            <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                <div className="flex flex-col gap-1 items-center justify-center bg-slate-50 p-1.5 rounded border border-slate-100">
+                    <div className="w-2 h-2 rounded-full bg-slate-800"></div>
+                    <div className="w-2 h-2 rounded-full bg-slate-300"></div>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5">Visual Guide</span>
+                    <div className="flex items-center gap-1">
+                        <span className="text-xs font-bold text-slate-700">Top Dot = Highest Value</span>
+                        <ArrowUp size={12} className="text-slate-400" />
+                    </div>
+                </div>
+            </div>
+        )}
+      </div>
       
       <div className="flex flex-1 min-h-0 w-full">
         
