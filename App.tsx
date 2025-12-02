@@ -4,6 +4,9 @@ import { Candidate, Employer, MatchResult } from './types';
 import { processCandidates } from './utils/scoring';
 import { Button, Card, Badge } from './components/UI';
 import { Histogram } from './components/Charts';
+import { candidatesService } from './services/candidatesService';
+import { employersService } from './services/employersService';
+import { matchResultsService } from './services/matchResultsService';
 
 function App() {
   // State
@@ -11,12 +14,18 @@ function App() {
   const [employers, setEmployers] = useState<Employer[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
-  
+
   // Selection
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<'distribution' | 'details'>('distribution');
   const [checkoutIds, setCheckoutIds] = useState<Set<number>>(new Set());
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [candidatesUploaded, setCandidatesUploaded] = useState(false);
+  const [employersUploaded, setEmployersUploaded] = useState(false);
 
   // Computed
   const currentJob = employers.find(e => e.job_id === selectedJobId);
@@ -35,27 +44,76 @@ function App() {
     domain: useRef<HTMLDivElement>(null),
   };
 
-  // Load from Local Storage on Mount
+  // Load from Supabase on Mount
   useEffect(() => {
-    const storedCand = localStorage.getItem('dhm_candidates');
-    const storedEmp = localStorage.getItem('dhm_employers');
-    if (storedCand) {
-      try { setCandidates(JSON.parse(storedCand)); } catch(e) {}
-    }
-    if (storedEmp) {
-      try { setEmployers(JSON.parse(storedEmp)); } catch(e) {}
-    }
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const [cands, emps] = await Promise.all([
+          candidatesService.getCandidates(),
+          employersService.getEmployers(),
+        ]);
+        setCandidates(cands);
+        setEmployers(emps);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
-  // Process Matches when job or candidates change
+  // Process Matches when job or candidates change, and save results
   useEffect(() => {
-    if (currentJob && candidates.length > 0) {
-      const results = processCandidates(candidates, currentJob);
-      setMatchResults(results);
-      // Reset selections on new job
-      setSelectedCandidateIds(new Set());
-      setCheckoutIds(new Set());
-    }
+    const processAndSaveMatches = async () => {
+      if (currentJob && candidates.length > 0) {
+        setIsSaving(true);
+        try {
+          // First, try to load existing results from database
+          const savedResults = await matchResultsService.getMatchResultsByJobId(currentJob.job_id);
+
+          if (savedResults.length > 0 && savedResults.length === candidates.length) {
+            // Use saved results if available and count matches
+            const enrichedResults = savedResults.map(saved => {
+              const candidate = candidates.find(c => c.candidate_id === saved.candidate_id);
+              if (!candidate) return null;
+
+              return {
+                candidate,
+                rank: saved.rank,
+                score: saved.score,
+                percentage: saved.percentage,
+                isEliminated: saved.is_eliminated,
+                eliminationReasons: saved.elimination_reasons || [],
+                details: { totalScore: saved.score, percentage: saved.percentage, breakdown: [] }
+              };
+            }).filter((r): r is MatchResult => r !== null);
+
+            setMatchResults(enrichedResults);
+          } else {
+            // Calculate fresh results if no saved data or candidate count mismatch
+            const results = processCandidates(candidates, currentJob);
+            setMatchResults(results);
+
+            // Save results to Supabase
+            await matchResultsService.saveMatchResults(currentJob.job_id, results);
+          }
+
+          // Reset selections on new job
+          setSelectedCandidateIds(new Set());
+          setCheckoutIds(new Set());
+        } catch (error) {
+          console.error('Error processing match results:', error);
+          // Fallback to calculating fresh results on error
+          const results = processCandidates(candidates, currentJob);
+          setMatchResults(results);
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    };
+    processAndSaveMatches();
   }, [currentJob, candidates]);
 
   // Scroll to top when view mode changes
@@ -69,19 +127,25 @@ function App() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const json = JSON.parse(ev.target?.result as string);
+        setIsSaving(true);
+
         if (type === 'candidates') {
-            if(!Array.isArray(json)) throw new Error("Candidates must be an array");
-            setCandidates(json);
-            localStorage.setItem('dhm_candidates', JSON.stringify(json));
+          if (!Array.isArray(json)) throw new Error("Candidates must be an array");
+          setCandidates(json);
+          setCandidatesUploaded(true);
+          await candidatesService.saveCandidates(json);
         } else {
-            if(!Array.isArray(json)) throw new Error("Employers must be an array");
-            setEmployers(json);
-            localStorage.setItem('dhm_employers', JSON.stringify(json));
+          if (!Array.isArray(json)) throw new Error("Employers must be an array");
+          setEmployers(json);
+          setEmployersUploaded(true);
+          await employersService.saveEmployers(json);
         }
+        setIsSaving(false);
       } catch (err) {
+        setIsSaving(false);
         alert("Invalid JSON file format");
       }
     };
@@ -108,6 +172,7 @@ function App() {
       <div className="text-center mb-12">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">Deep HR Match Configuration</h1>
         <p className="text-slate-600">Upload your data to begin the AI-powered matching process.</p>
+        {isLoading && <p className="text-slate-500 text-sm mt-4">Loading data...</p>}
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
@@ -135,11 +200,12 @@ function App() {
               <p className="text-sm text-slate-400">or drag and drop</p>
             </label>
             <div className="mt-4 min-h-[24px]">
-              {candidates.length > 0 ? (
+              {isSaving && <span className="text-blue-600 font-semibold text-sm">Saving...</span>}
+              {!isSaving && candidatesUploaded && candidates.length > 0 ? (
                 <span className="text-green-600 font-semibold flex items-center justify-center gap-2 bg-green-50 py-1 px-3 rounded-full text-sm inline-block">
                   <Check size={14} /> {candidates.length} Candidates Loaded
                 </span>
-              ) : <span className="text-slate-400 text-sm">No file chosen</span>}
+              ) : !isSaving && <span className="text-slate-400 text-sm">No file chosen</span>}
             </div>
           </div>
         </Card>
@@ -168,11 +234,12 @@ function App() {
               <p className="text-sm text-slate-400">or drag and drop</p>
             </label>
             <div className="mt-4 min-h-[24px]">
-              {employers.length > 0 ? (
+              {isSaving && <span className="text-blue-600 font-semibold text-sm">Saving...</span>}
+              {!isSaving && employersUploaded && employers.length > 0 ? (
                 <span className="text-green-600 font-semibold flex items-center justify-center gap-2 bg-green-50 py-1 px-3 rounded-full text-sm inline-block">
                   <Check size={14} /> {employers.length} Jobs Loaded
                 </span>
-              ) : <span className="text-slate-400 text-sm">No file chosen</span>}
+              ) : !isSaving && <span className="text-slate-400 text-sm">No file chosen</span>}
             </div>
           </div>
         </Card>
