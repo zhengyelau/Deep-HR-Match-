@@ -73,11 +73,10 @@ export const Histogram: React.FC<HistogramProps> = ({
 
     let entries = Array.from(map.entries());
 
-    // Filter out empty buckets to hide columns with no data
-    entries = entries.filter(([_, items]) => items.length > 0);
-
-    // Sort categories by count desc if not range
-    if (bucketType === 'category') {
+    // For range buckets, keep all labels even if empty. For categories, filter out empty
+    if (bucketType !== 'range') {
+      entries = entries.filter(([_, items]) => items.length > 0);
+      // Sort categories by count desc
       return entries
         .sort((a, b) => b[1].length - a[1].length)
         .slice(0, 10); // Limit to top 10 columns for readability
@@ -144,39 +143,42 @@ export const Histogram: React.FC<HistogramProps> = ({
             <div className="flex-1 flex items-end gap-2 sm:gap-4 border-l border-b border-slate-200 pl-2 pb-0.5 relative">
                 {buckets.map(([label, items], idx) => {
                     const heightPct = (items.length / maxCount) * 100;
+                    const hasItems = items.length > 0;
                     return (
                         <div key={idx} className="flex-1 h-full flex flex-col justify-end group">
-                            {/* Histogram Bar */}
-                            <div 
-                                className={`w-full rounded-t-sm transition-all duration-500 flex flex-col-reverse flex-wrap content-center gap-1 p-1 ${themeStyles.bar} relative z-10`}
-                                style={{ height: `${Math.max(heightPct, 5)}%` }} // Min height 5%
-                            >
-                                {/* Dots */}
-                                {items.map((res) => {
-                                    const isSelected = selectedIds.has(res.candidate.candidate_id);
-                                    return (
-                                        <button
-                                            key={res.candidate.candidate_id}
-                                            onClick={() => onToggleSelect(res.candidate.candidate_id)}
-                                            onMouseEnter={(e) => {
-                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                setHoveredCandidate({
-                                                    id: res.candidate.candidate_id,
-                                                    name: `${res.candidate.first_name} ${res.candidate.last_name}`,
-                                                    value: getValue(res).toString(),
-                                                    x: rect.left + rect.width / 2,
-                                                    y: rect.top
-                                                });
-                                            }}
-                                            onMouseLeave={() => setHoveredCandidate(null)}
-                                            className={`
-                                                w-3 h-3 rounded-full transition-all duration-200 hover:scale-150
-                                                ${isSelected ? `z-20 ${themeStyles.dotSelected}` : `${themeStyles.dot} opacity-90 hover:opacity-100`}
-                                            `}
-                                        />
-                                    );
-                                })}
-                            </div>
+                            {/* Histogram Bar - only show if has items */}
+                            {hasItems && (
+                                <div
+                                    className={`w-full rounded-t-sm transition-all duration-500 flex flex-col-reverse flex-wrap content-center gap-1 p-1 ${themeStyles.bar} relative z-10`}
+                                    style={{ height: `${Math.max(heightPct, 5)}%` }}
+                                >
+                                    {/* Dots */}
+                                    {items.map((res) => {
+                                        const isSelected = selectedIds.has(res.candidate.candidate_id);
+                                        return (
+                                            <button
+                                                key={res.candidate.candidate_id}
+                                                onClick={() => onToggleSelect(res.candidate.candidate_id)}
+                                                onMouseEnter={(e) => {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setHoveredCandidate({
+                                                        id: res.candidate.candidate_id,
+                                                        name: `${res.candidate.first_name} ${res.candidate.last_name}`,
+                                                        value: getValue(res).toString(),
+                                                        x: rect.left + rect.width / 2,
+                                                        y: rect.top
+                                                    });
+                                                }}
+                                                onMouseLeave={() => setHoveredCandidate(null)}
+                                                className={`
+                                                    w-3 h-3 rounded-full transition-all duration-200 hover:scale-150
+                                                    ${isSelected ? `z-20 ${themeStyles.dotSelected}` : `${themeStyles.dot} opacity-90 hover:opacity-100`}
+                                                `}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     );
                 })}
