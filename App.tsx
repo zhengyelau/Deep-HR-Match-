@@ -463,7 +463,7 @@ function App() {
                 </div>
                 <div className="text-center">
                   <h2 className="text-2xl font-bold text-slate-900 mb-2">Loading data...</h2>
-                  <p className="text-slate-600">Calculating match scores and loading results...</p>
+                  {/* <p className="text-slate-600">Calculating match scores and loading results...</p> */}
                 </div>
               </div>
             ) : viewMode === 'distribution' ? (
