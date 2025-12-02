@@ -24,6 +24,7 @@ function App() {
   // Loading state
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isProcessingMatches, setIsProcessingMatches] = useState(false);
   const [candidatesUploaded, setCandidatesUploaded] = useState(false);
   const [employersUploaded, setEmployersUploaded] = useState(false);
 
@@ -73,7 +74,7 @@ function App() {
   useEffect(() => {
     const processAndSaveMatches = async () => {
       if (currentJob && candidates.length > 0) {
-        setIsSaving(true);
+        setIsProcessingMatches(true);
         try {
           // First, try to load existing results from database
           const savedResults = await matchResultsService.getMatchResultsByJobId(currentJob.job_id);
@@ -114,7 +115,7 @@ function App() {
           const results = processCandidates(candidates, currentJob);
           setMatchResults(results);
         } finally {
-          setIsSaving(false);
+          setIsProcessingMatches(false);
         }
       }
     };
@@ -452,7 +453,21 @@ function App() {
       <main className="flex-1">
         {selectedJobId ? (
           <div className="max-w-7xl mx-auto px-4 py-8 animate-in fade-in duration-500">
-            {viewMode === 'distribution' ? (
+            {isProcessingMatches ? (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+                <div className="relative">
+                  <div className="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Activity className="w-8 h-8 text-blue-600" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Processing Candidates</h2>
+                  <p className="text-slate-600">Calculating match scores and saving results to database...</p>
+                  <p className="text-sm text-slate-500 mt-2">This may take a moment</p>
+                </div>
+              </div>
+            ) : viewMode === 'distribution' ? (
               <>
                 {/* Dashboard Header */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
