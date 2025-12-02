@@ -7,6 +7,7 @@ import { Histogram } from './components/Charts';
 import { candidatesService } from './services/candidatesService';
 import { employersService } from './services/employersService';
 import { matchResultsService } from './services/matchResultsService';
+import { saveToMatchingTable } from './utils/db';
 
 function App() {
   // State
@@ -54,7 +55,10 @@ function App() {
           employersService.getEmployers(),
         ]);
         setCandidates(cands);
+        if (cands.length > 0) setCandidatesUploaded(true);
+        
         setEmployers(emps);
+        if (emps.length > 0) setEmployersUploaded(true);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -137,11 +141,13 @@ function App() {
           setCandidates(json);
           setCandidatesUploaded(true);
           await candidatesService.saveCandidates(json);
+          await saveToMatchingTable('candidates', json);
         } else {
           if (!Array.isArray(json)) throw new Error("Employers must be an array");
           setEmployers(json);
           setEmployersUploaded(true);
           await employersService.saveEmployers(json);
+          await saveToMatchingTable('employers', json);
         }
         setIsSaving(false);
       } catch (err) {
@@ -245,7 +251,8 @@ function App() {
         </Card>
       </div>
 
-      {candidates.length > 0 && employers.length > 0 && (
+      {/* Button conditionally rendered based on upload flags AND array length */}
+      {candidatesUploaded && candidates.length > 0 && employersUploaded && employers.length > 0 && (
         <div className="mt-16 flex justify-center animate-in fade-in slide-in-from-bottom-4">
           <button
              onClick={() => setSelectedJobId(employers[0].job_id)}
