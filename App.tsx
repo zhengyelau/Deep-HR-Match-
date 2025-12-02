@@ -462,9 +462,8 @@ function App() {
                   </div>
                 </div>
                 <div className="text-center">
-                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Processing Candidates</h2>
-                  <p className="text-slate-600">Calculating match scores and saving results to database...</p>
-                  <p className="text-sm text-slate-500 mt-2">This may take a moment</p>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Loading data...</h2>
+                  <p className="text-slate-600">Calculating match scores and loading results...</p>
                 </div>
               </div>
             ) : viewMode === 'distribution' ? (
