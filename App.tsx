@@ -55,10 +55,12 @@ function App() {
           employersService.getEmployers(),
         ]);
         setCandidates(cands);
-        if (cands.length > 0) setCandidatesUploaded(true);
+        // Removed automatic setting of uploaded flags to force user upload
+        // if (cands.length > 0) setCandidatesUploaded(true);
         
         setEmployers(emps);
-        if (emps.length > 0) setEmployersUploaded(true);
+        // Removed automatic setting of uploaded flags to force user upload
+        // if (emps.length > 0) setEmployersUploaded(true);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
