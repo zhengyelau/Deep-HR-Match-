@@ -14,7 +14,7 @@ function App() {
   const [employers, setEmployers] = useState<Employer[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
-  // test
+
   // Selection
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<'distribution' | 'details'>('distribution');
