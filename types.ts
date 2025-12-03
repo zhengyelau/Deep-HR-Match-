@@ -3,12 +3,9 @@ export interface Questionnaire {
   q2_driving_license: string;
   q3_own_car: string;
   q4_willing_to_travel: string;
-  q5_legal_right_to_work: string;
-  q6_bachelor_degree_or_required_education: string;
-  q7_required_years_experience: string;
-  q8_willing_full_time: string;
-  q9_willing_to_relocate: string;
-  q10_comfortable_with_background_checks: string;
+  q5_disability_support: string;
+  q6_willing_to_relocate: string;
+  q7_comfortable_with_background_checks: string;
 }
 
 export interface Candidate {
