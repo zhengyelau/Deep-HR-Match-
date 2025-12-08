@@ -177,6 +177,30 @@ function App() {
     setSelectedCandidateIds(newSet);
   };
 
+  // Handler: Remove from view (X button) - Removes from all lists
+  const handleRemoveFromView = (id: number) => {
+      // 1. Remove from selected (charts distribution selection)
+      if (selectedCandidateIds.has(id)) {
+          const newSet = new Set(selectedCandidateIds);
+          newSet.delete(id);
+          setSelectedCandidateIds(newSet);
+      }
+      
+      // 2. Remove from shortlist (bookmark)
+      if (checkoutIds.has(id)) {
+          const newSet = new Set(checkoutIds);
+          newSet.delete(id);
+          setCheckoutIds(newSet);
+      }
+
+      // 3. Remove from payment (checkout)
+      if (paymentIds.has(id)) {
+          const newSet = new Set(paymentIds);
+          newSet.delete(id);
+          setPaymentIds(newSet);
+      }
+  };
+
   // Handler: Batch Add Selection
   const handleBatchSelect = (ids: number[]) => {
     const newSet = new Set(selectedCandidateIds);
@@ -792,19 +816,23 @@ function App() {
                             <span className="font-bold text-xl px-2">!</span>
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold text-blue-900 mb-3">How to Use This Page</h3>
+                            <h3 className="text-xl font-bold text-blue-900 mb-3">Candidate Evaluation & Selection</h3>
                             <ol className="space-y-2 text-blue-900/80 text-base">
                                 <li className="flex gap-2">
                                     <span className="font-bold text-blue-700">1.</span>
-                                    <span><span className="font-bold">Review the detailed information</span> for each candidate below.</span>
+                                    <span><span className="font-bold">Review Profiles:</span> Analyze detailed candidate information, matching scores, and elimination criteria below.</span>
                                 </li>
                                 <li className="flex gap-2">
                                     <span className="font-bold text-blue-700">2.</span>
-                                    <span>Rate the candidate and use the <span className="font-bold">Shortlist button</span> (Bookmark icon) to add them to your final list.</span>
+                                    <span><span className="font-bold">Discover More:</span> Use the "Discover Similar Candidates" section to find others with similar skills or domain knowledge.</span>
                                 </li>
                                 <li className="flex gap-2">
                                     <span className="font-bold text-blue-700">3.</span>
-                                    <span><span className="font-bold">When you're ready</span>, click the "Proceed to Shortlist Page" button at the bottom right.</span>
+                                    <span><span className="font-bold">Select Candidates:</span> Rate candidates and use the <span className="font-bold">Shortlist button</span> (Bookmark icon) to add them to your final list.</span>
+                                </li>
+                                <li className="flex gap-2">
+                                    <span className="font-bold text-blue-700">4.</span>
+                                    <span><span className="font-bold">Proceed:</span> When ready, click "Proceed to Shortlist Page" at the bottom right to finalize your selection.</span>
                                 </li>
                             </ol>
                         </div>
@@ -922,8 +950,36 @@ function App() {
                   <Card className="overflow-hidden border border-slate-200 shadow-sm">
                     <div className="p-6 md:p-8">
                       {itemsToShow.length === 0 ? (
-                        <div className="text-center py-12 text-slate-500 italic">
-                            No candidates found in this view.
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <div className="bg-slate-100 p-6 rounded-full mb-4">
+                                <Search size={48} className="text-slate-300" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">
+                                No candidates found
+                            </h3>
+                            <p className="text-slate-500 mb-8 max-w-md text-center">
+                                {isShortlistView && shortlistFilter !== 'All' 
+                                    ? "No candidates match the selected filter criteria." 
+                                    : "There are no candidates to display in this view."}
+                            </p>
+                            <div className="flex gap-4">
+                                {isShortlistView && shortlistFilter !== 'All' ? (
+                                    <Button variant="secondary" onClick={() => setShortlistFilter('All')}>
+                                        Clear Filters
+                                    </Button>
+                                ) : (
+                                    <Button variant="secondary" onClick={() => setViewMode('distribution')}>
+                                        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+                                    </Button>
+                                )}
+                                
+                                {/* Show Proceed button here if we have items in the background */}
+                                {!isShortlistView && checkoutIds.size > 0 && (
+                                    <Button onClick={() => setViewMode('shortlist')}>
+                                        Proceed to Shortlist Page ({checkoutIds.size})
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                       ) : (
                         <div className="space-y-12">
@@ -1034,7 +1090,7 @@ function App() {
                                                 {/* Remove X Button - Only in Details view to remove from viewing set */}
                                                 {!isShortlistView && (
                                                     <button 
-                                                        onClick={() => toggleSelection(res.candidate.candidate_id)}
+                                                        onClick={() => handleRemoveFromView(res.candidate.candidate_id)}
                                                         className="p-2.5 rounded-lg border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 transition-colors"
                                                         title="Remove from View"
                                                     >
@@ -1137,8 +1193,8 @@ function App() {
 
                       {/* Footer Buttons Logic */}
                       
-                      {/* 1. Proceed to Shortlist Page (Details View) - Always Visible as requested */}
-                      {!isShortlistView && (
+                      {/* 1. Proceed to Shortlist Page (Details View) - Visible ONLY if items in view */}
+                      {!isShortlistView && itemsToShow.length > 0 && (
                           <div className="mt-8 pt-8 border-t border-slate-100 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
                              <Button 
                                 size="lg" 
@@ -1151,8 +1207,8 @@ function App() {
                           </div>
                       )}
 
-                      {/* 2. Proceed to Checkout (Shortlist View) - Visible if items selected for payment */}
-                      {isShortlistView && paymentIds.size > 0 && (
+                      {/* 2. Proceed to Checkout (Shortlist View) - Visible ONLY if items in view and selected for payment */}
+                      {isShortlistView && paymentIds.size > 0 && itemsToShow.length > 0 && (
                           <div className="mt-8 pt-8 border-t border-slate-100 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
                              <Button 
                                 size="lg" 
