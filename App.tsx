@@ -186,7 +186,7 @@ function App() {
           newSet.delete(id);
           setSelectedCandidateIds(newSet);
       }
-      
+
       // 2. Remove from shortlist (bookmark)
       if (checkoutIds.has(id)) {
           const newSet = new Set(checkoutIds);
@@ -199,6 +199,13 @@ function App() {
           const newSet = new Set(paymentIds);
           newSet.delete(id);
           setPaymentIds(newSet);
+      }
+
+      // 4. Reset rating (if candidate was rated)
+      if (candidateRatings[id]) {
+          const newRatings = { ...candidateRatings };
+          delete newRatings[id];
+          setCandidateRatings(newRatings);
       }
   };
 
