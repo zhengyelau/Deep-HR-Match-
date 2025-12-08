@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { MatchResult, MatchDetails } from '../types';
+import { MatchResult, MatchDetails, MatchResultRow } from '../types';
 
 export const matchResultsService = {
   async saveMatchResult(jobId: number, matchResult: MatchResult): Promise<string | null> {
@@ -66,7 +66,7 @@ export const matchResultsService = {
     }
   },
 
-  async getMatchResultsByJobId(jobId: number): Promise<MatchResult[]> {
+  async getMatchResultsByJobId(jobId: number): Promise<MatchResultRow[]> {
     const { data, error } = await supabase
       .from('match_results')
       .select('*')

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Brain, Briefcase, User, Check, ShoppingCart, X, ArrowLeft, Info, Calendar, DollarSign, Clock, BookOpen, GraduationCap, Zap, Network, Eye, LogOut, FileQuestion, Activity } from 'lucide-react';
-import { Candidate, Employer, MatchResult } from './types';
+import { Candidate, Employer, MatchResult, MatchResultRow } from './types';
 import { processCandidates } from './utils/scoring';
 import { Button, Card, Badge } from './components/UI';
 import { Histogram } from './components/Charts';
@@ -55,12 +55,8 @@ function App() {
           employersService.getEmployers(),
         ]);
         setCandidates(cands);
-        // Removed automatic setting of uploaded flags to force user upload
-        // if (cands.length > 0) setCandidatesUploaded(true);
         
         setEmployers(emps);
-        // Removed automatic setting of uploaded flags to force user upload
-        // if (emps.length > 0) setEmployersUploaded(true);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -77,13 +73,16 @@ function App() {
         setIsProcessingMatches(true);
         try {
           // First, try to load existing results from database
-          const savedResults = await matchResultsService.getMatchResultsByJobId(currentJob.job_id);
+          const savedResults: MatchResultRow[] = await matchResultsService.getMatchResultsByJobId(currentJob.job_id);
 
           if (savedResults.length > 0 && savedResults.length === candidates.length) {
             // Use saved results if available and count matches
-            const enrichedResults = savedResults.map(saved => {
+            const enrichedResults = await Promise.all(savedResults.map(async (saved) => {
               const candidate = candidates.find(c => c.candidate_id === saved.candidate_id);
               if (!candidate) return null;
+
+              // Fetch details for this result
+              const breakdown = await matchResultsService.getMatchDetailsByResultId(saved.id);
 
               return {
                 candidate,
@@ -92,11 +91,11 @@ function App() {
                 percentage: saved.percentage,
                 isEliminated: saved.is_eliminated,
                 eliminationReasons: saved.elimination_reasons || [],
-                details: { totalScore: saved.score, percentage: saved.percentage, breakdown: [] }
+                details: { totalScore: saved.score, percentage: saved.percentage, breakdown: breakdown }
               };
-            }).filter((r): r is MatchResult => r !== null);
+            }));
 
-            setMatchResults(enrichedResults);
+            setMatchResults(enrichedResults.filter((r): r is MatchResult => r !== null));
           } else {
             // Calculate fresh results if no saved data or candidate count mismatch
             const results = processCandidates(candidates, currentJob);
@@ -733,17 +732,11 @@ function App() {
                                         <div className="flex items-center gap-4">
                                             {/* Avatar */}
                                             <div className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-medium shadow-sm overflow-hidden">
-                                                <img
-                                                    src={`https://i.pravatar.cc/150?img=${(res.candidate.candidate_id % 70) + 1}`}
-                                                    alt={`${res.candidate.first_name} ${res.candidate.last_name}`}
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => {
-                                                        e.currentTarget.style.display = 'none';
-                                                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                                                        if (fallback) fallback.style.display = 'flex';
-                                                    }}
-                                                />
-                                                <span className="hidden w-full h-full items-center justify-center" style={{ display: 'none' }}>
+                                                {/* Try to use profile picture if valid string, else fallback */}
+                                                {res.candidate.profile_picture_url && res.candidate.profile_picture_url.length > 5 ? (
+                                                   <img src={res.candidate.profile_picture_url} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+                                                ) : null}
+                                                <span className={res.candidate.profile_picture_url && res.candidate.profile_picture_url.length > 5 ? 'hidden' : ''}>
                                                     {res.candidate.first_name[0]}{res.candidate.last_name[0]}
                                                 </span>
                                             </div>
@@ -840,78 +833,52 @@ function App() {
                                     </div>
 
                                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                      {/* ORANGE SECTION: Elimination Criteria */}
-                                      <div className="bg-orange-50 rounded-lg border border-orange-100 p-5 h-full">
-                                        <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria - basic information</h4>
-                                        
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                          {/* Row 1 */}
-                                          <CriteriaItem label="Age" value={res.candidate.age} />
-                                          <CriteriaItem label="Gender" value={res.candidate.gender} />
-                                          <CriteriaItem label="DOB" value={res.candidate.date_of_birth} />
-                                          <CriteriaItem label="Nationality" value={res.candidate.nationality} />
-                                          
-                                          {/* Row 2 */}
-                                          <CriteriaItem label="Birth Country" value={res.candidate.country_of_birth} />
-                                          <CriteriaItem label="Current Country" value={res.candidate.current_country} />
-                                          <CriteriaItem label="Current City" value={res.candidate.current_city} />
-                                          <CriteriaItem 
-                                            label="Min Salary" 
-                                            value={`$${res.candidate.minimum_expected_salary_monthly.toLocaleString()}`} 
-                                          />
-                                          
-                                          {/* Row 3 */}
-                                          <CriteriaItem label="Availability" value={res.candidate.availability} />
-                                          <CriteriaItem label="Visa Status" value={res.candidate.visa_status} />
-                                          <CriteriaItem 
-                                            label="Job Arrangement" 
-                                            value={res.candidate.desired_type_of_job_arrangement} 
-                                          />
-                                          
-                                          {/* Fitness Data - Span full width on mobile, 2 cols on desktop */}
-                                          {res.candidate.fitness_level && (
-                                            <CriteriaItem label="Fitness" value={res.candidate.fitness_level} />
-                                          )}
-                                          
-                                          {/* Row 4: Height and Weight if available */}
-                                          {res.candidate.height_cm && (
-                                            <CriteriaItem label="Height" value={`${res.candidate.height_cm} cm`} />
-                                          )}
-                                          {res.candidate.weight_kg && (
-                                            <CriteriaItem label="Weight" value={`${res.candidate.weight_kg} kg`} />
-                                          )}
-                                          
-                                          {/* Row 5: Contact Info - Span full width */}
-                                          <CriteriaItem 
-                                            label="Email" 
-                                            value={res.candidate.email} 
-                                            
-                                          />
-                                          <CriteriaItem 
-                                            label="Phone" 
-                                            value={res.candidate.phone} 
-                                            
-                                          />
+                                        {/* ORANGE SECTION: Elimination Criteria */}
+                                        <div className="bg-orange-50 rounded-lg border border-orange-100 p-5 h-full">
+                                             <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria - basic information</h4>
+                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                {/* Row 1 */}
+                                                <CriteriaItem label="Age" value={res.candidate.age} />
+                                                <CriteriaItem label="Gender" value={res.candidate.gender} />
+                                                <CriteriaItem label="DOB" value={res.candidate.date_of_birth} />
+                                                
+                                                {/* Row 2 */}
+                                                <CriteriaItem label="Nationality" value={res.candidate.nationality} />
+                                                <CriteriaItem label="Birth Country" value={res.candidate.country_of_birth} />
+                                                
+                                                {/* Row 3 */}
+                                                <CriteriaItem label="Current Country" value={res.candidate.current_country} />
+                                                <CriteriaItem label="Min Salary" value={`$${res.candidate.minimum_expected_salary_monthly.toLocaleString()}`} />
+                                                <CriteriaItem label="Availability" value={res.candidate.availability} />
+                                                <CriteriaItem label="Visa Status" value={res.candidate.visa_status} />
+
+                                                {/* Row 4: New Profile Data */}
+                                                {res.candidate.fitness_level && <CriteriaItem label="Fitness" value={res.candidate.fitness_level} />}
+                                                {res.candidate.height_cm && <CriteriaItem label="Height" value={`${res.candidate.height_cm} cm`} />}
+                                                {res.candidate.weight_kg && <CriteriaItem label="Weight" value={`${res.candidate.weight_kg} kg`} />}
+                                                
+                                                <CriteriaItem label="Email" value={res.candidate.email} className="md:col-span-2 break-all" />
+                                                <CriteriaItem label="Phone" value={res.candidate.phone} className="md:col-span-2" />
+                                             </div>
                                         </div>
-                                      </div>
                                         
-                                      {/* CYAN SECTION: Questionnaire */}
-                                      {q && (
-                                          <div className="bg-cyan-50 rounded-lg border border-cyan-100 p-5 h-full">
-                                              <div className="flex items-center gap-2 mb-4">
-                                                  <h4 className="text-lg font-bold text-slate-900">Elimination Criteria - yes or no question</h4>
-                                              </div>
-                                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                  <QuestionItem question="Are you willing to work overtime" answer={q.q1_overtime} />
-                                                  <QuestionItem question="Do you have driving License" answer={q.q2_driving_license} />
-                                                  <QuestionItem question="Do you own a car" answer={q.q3_own_car} />
-                                                  <QuestionItem question="Are you willing to travel" answer={q.q4_willing_to_travel} />
-                                                  <QuestionItem question="Do you need disability support" answer={q.q5_need_disability_support} />
-                                                  <QuestionItem question="Are you willing to relocate" answer={q.q6_willing_to_relocate} />
-                                                  <QuestionItem question="Are you comfortable with background checks" answer={q.q7_comfortable_with_background_checks} />
-                                              </div>
-                                          </div>
-                                      )}
+                                        {/* CYAN SECTION: Questionnaire */}
+                                        {q && (
+                                            <div className="bg-cyan-50 rounded-lg border border-cyan-100 p-5 h-full">
+                                                <div className="flex items-center gap-2 mb-4">
+                                                    <h4 className="text-lg font-bold text-slate-900">Elimination Criteria - yes or no question</h4>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                    <QuestionItem question="Are you willing to work overtime" answer={q.q1_overtime_or_weekends} />
+                                                    <QuestionItem question="Do you have driving License" answer={q.q2_driving_license} />
+                                                    <QuestionItem question="Do you own a car" answer={q.q3_own_car} />
+                                                    <QuestionItem question="Are you willing to travel" answer={q.q4_willing_to_travel} />
+                                                    <QuestionItem question="Do you need disability support" answer={q.q5_disability_support} />
+                                                    <QuestionItem question="Are you willing to relocate" answer={q.q6_willing_to_relocate} />
+                                                    <QuestionItem question="Are you comfortable with background checks" answer={q.q7_comfortable_with_background_checks} />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                 </div>

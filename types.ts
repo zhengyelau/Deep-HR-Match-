@@ -128,6 +128,19 @@ export interface MatchResult {
   details: MatchDetails;
 }
 
+// Raw Database Row for Match Results
+export interface MatchResultRow {
+  id: string;
+  job_id: number;
+  candidate_id: number;
+  rank: number;
+  score: number;
+  percentage: number;
+  is_eliminated: boolean;
+  elimination_reasons: string[];
+  created_at: string;
+}
+
 export type ChartType = 
   | 'salary' 
   | 'age' 
