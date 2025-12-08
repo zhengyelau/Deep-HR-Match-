@@ -25,7 +25,8 @@ function App() {
   const [paymentIds, setPaymentIds] = useState<Set<number>>(new Set());
   // candidateRatings tracks the employer's rating for each candidate
   const [candidateRatings, setCandidateRatings] = useState<Record<number, string>>({});
-  const [shortlistFilter, setShortlistFilter] = useState<string>('All');
+  const [shortlistFilterRatings, setShortlistFilterRatings] = useState<Set<string>>(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']));
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
@@ -119,7 +120,7 @@ function App() {
           setCheckoutIds(new Set());
           setPaymentIds(new Set());
           setCandidateRatings({});
-          setShortlistFilter('All');
+          setShortlistFilterRatings(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']));
         } catch (error) {
           console.error('Error processing match results:', error);
           // Fallback to calculating fresh results on error
@@ -241,33 +242,51 @@ function App() {
   // Helper to get unselected suggestions
   const getUnselectedSuggestions = () => {
       const unselected = matchResults.filter(r => !selectedCandidateIds.has(r.candidate.candidate_id));
-      
-      const domainMap = new Map<string, number[]>();
-      const functionMap = new Map<string, number[]>();
+
+      const domainMap = new Map<string, { ids: number[], names: string[], scores: number[] }>();
+      const functionMap = new Map<string, { ids: number[], names: string[], scores: number[] }>();
 
       unselected.forEach(r => {
+          const name = `${r.candidate.first_name} ${r.candidate.last_name}`;
+          const score = r.score;
+
+          // Helper to add to map
+          const addToMap = (map: Map<string, { ids: number[], names: string[], scores: number[] }>, key: string) => {
+              if (!map.has(key)) map.set(key, { ids: [], names: [], scores: [] });
+              const entry = map.get(key)!;
+              entry.ids.push(r.candidate.candidate_id);
+              entry.names.push(name);
+              entry.scores.push(score);
+          };
+
           // Domain
           const d = (r.candidate.past_current_domain || 'Unknown').split(',')[0].trim();
-          if (!domainMap.has(d)) domainMap.set(d, []);
-          domainMap.get(d)?.push(r.candidate.candidate_id);
+          if (d && d !== 'Unknown') addToMap(domainMap, d);
 
           // Function
           const f = (r.candidate.past_current_function || 'Unknown').split(',')[0].trim();
-          if (!functionMap.has(f)) functionMap.set(f, []);
-          functionMap.get(f)?.push(r.candidate.candidate_id);
+          if (f && f !== 'Unknown') addToMap(functionMap, f);
       });
 
       // Helper sort
-      const sortMap = (map: Map<string, number[]>) => {
+      const sortMap = (map: Map<string, { ids: number[], names: string[], scores: number[] }>) => {
           return Array.from(map.entries())
-            .filter(([k, v]) => k !== 'Unknown' && v.length > 0)
-            .sort((a, b) => b[1].length - a[1].length)
+            .filter(([k, v]) => v.ids.length > 0)
+            .sort((a, b) => {
+                // Sort by count first, then by average score
+                if (b[1].ids.length !== a[1].ids.length) {
+                    return b[1].ids.length - a[1].ids.length;
+                }
+                const avgA = a[1].scores.reduce((sum, s) => sum + s, 0) / a[1].scores.length;
+                const avgB = b[1].scores.reduce((sum, s) => sum + s, 0) / b[1].scores.length;
+                return avgB - avgA;
+            })
             .slice(0, 5); // Take top 5
       };
 
       return {
           domains: sortMap(domainMap),
-          functions: sortMap(functionMap)
+          functions: sortMap(functionMap),
       };
   };
 
@@ -519,12 +538,16 @@ function App() {
   // If in shortlist view, show candidates that are in the shortlist (checkoutIds).
   let itemsToShow = isShortlistView ? shortlistedMatches : selectedMatches;
 
-  if (isShortlistView && shortlistFilter !== 'All') {
-      itemsToShow = itemsToShow.filter(r => {
-          const rating = candidateRatings[r.candidate.candidate_id];
-          if (shortlistFilter === 'Unrated') return !rating;
-          return rating === shortlistFilter;
-      });
+  if (isShortlistView) {
+      const isAllSelected = shortlistFilterRatings.size === 4;
+      if (!isAllSelected) {
+          itemsToShow = itemsToShow.filter(r => {
+              const rating = candidateRatings[r.candidate.candidate_id];
+              if (shortlistFilterRatings.has('Unrated') && !rating) return true;
+              if (rating && shortlistFilterRatings.has(rating)) return true;
+              return false;
+          });
+      }
   }
 
   // Main UI Render
@@ -781,19 +804,62 @@ function App() {
                    <div className="flex items-center gap-3">
                        {isShortlistView && (
                            <div className="relative mr-2">
-                               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                               <select
-                                   value={shortlistFilter}
-                                   onChange={(e) => setShortlistFilter(e.target.value)}
-                                   className="pl-9 pr-8 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer hover:border-slate-400 transition-colors shadow-sm"
+                               <button
+                                   onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                   className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium hover:border-slate-400 transition-colors shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                >
-                                   <option value="All">All Ratings</option>
-                                   <option value="Top Fit">Top Fit</option>
-                                   <option value="Maybe">Maybe</option>
-                                   <option value="Not a Fit">Not a Fit</option>
-                                   <option value="Unrated">Unrated</option>
-                               </select>
-                               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                                   <Filter size={16} className="text-slate-600" />
+                                   <span className="text-slate-700">Filter</span>
+                                   <ChevronDown size={14} className={`text-slate-400 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
+                               </button>
+
+                               {isFilterOpen && (
+                                   <div className="absolute right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-4 z-50 min-w-[240px] animate-in fade-in slide-in-from-top-2">
+                                       <div className="space-y-3">
+                                           <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                                               <span className="text-sm font-bold text-slate-700">Filter by Rating</span>
+                                               {shortlistFilterRatings.size < 4 && (
+                                                   <button
+                                                       onClick={() => setShortlistFilterRatings(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']))}
+                                                       className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                                                   >
+                                                       Reset
+                                                   </button>
+                                               )}
+                                           </div>
+
+                                           {['Top Fit', 'Maybe', 'Not a Fit', 'Unrated'].map((rating) => {
+                                               const isChecked = shortlistFilterRatings.has(rating);
+                                               return (
+                                                   <label key={rating} className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-2 rounded transition-colors">
+                                                       <input
+                                                           type="checkbox"
+                                                           checked={isChecked}
+                                                           onChange={(e) => {
+                                                               const newSet = new Set(shortlistFilterRatings);
+                                                               if (e.target.checked) {
+                                                                   newSet.add(rating);
+                                                               } else {
+                                                                   newSet.delete(rating);
+                                                               }
+                                                               setShortlistFilterRatings(newSet);
+                                                           }}
+                                                           className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                                       />
+                                                       <span className={`text-sm font-medium ${
+                                                           rating === 'Top Fit' ? 'text-green-700' :
+                                                           rating === 'Maybe' ? 'text-orange-700' :
+                                                           rating === 'Not a Fit' ? 'text-red-700' :
+                                                           'text-slate-700'
+                                                       }`}>
+                                                           {rating}
+                                                       </span>
+                                                   </label>
+                                               );
+                                           })}
+                                       </div>
+                                   </div>
+                               )}
                            </div>
                        )}
                        <span className="text-slate-500 text-sm hidden sm:inline">Viewing {itemsToShow.length} candidates</span>
@@ -828,11 +894,15 @@ function App() {
                                 </li>
                                 <li className="flex gap-2">
                                     <span className="font-bold text-blue-700">3.</span>
-                                    <span><span className="font-bold">Select Candidates:</span> Rate candidates and use the <span className="font-bold">Shortlist button</span> (Bookmark icon) to add them to your final list.</span>
+                                    <span><span className="font-bold">Rate Candidates:</span> Use the rating dropdown to classify each candidate as <span className="font-bold text-green-700">Top Fit</span>, <span className="font-bold text-orange-700">Maybe</span>, or <span className="font-bold text-red-700">Not a Fit</span> based on your evaluation.</span>
                                 </li>
                                 <li className="flex gap-2">
                                     <span className="font-bold text-blue-700">4.</span>
-                                    <span><span className="font-bold">Proceed:</span> When ready, click "Proceed to Shortlist Page" at the bottom right to finalize your selection.</span>
+                                    <span><span className="font-bold">Shortlist:</span> Click the <span className="font-bold">Shortlist button</span> (Bookmark icon) to add promising candidates to your final shortlist.</span>
+                                </li>
+                                <li className="flex gap-2">
+                                    <span className="font-bold text-blue-700">5.</span>
+                                    <span><span className="font-bold">Proceed:</span> When ready, click "Proceed to Shortlist Page" at the bottom to review all shortlisted candidates and make your final selection.</span>
                                 </li>
                             </ol>
                         </div>
@@ -850,15 +920,19 @@ function App() {
                             <ol className="space-y-2 text-blue-900/80 text-base">
                                 <li className="flex gap-2">
                                     <span className="font-bold text-blue-700">1.</span>
-                                    <span>Review your shortlisted candidates below. You can filter candidates based on your rating using the dropdown in the header.</span>
+                                    <span><span className="font-bold">Review & Filter:</span> Review all shortlisted candidates below. Use the filter dropdown in the header to view candidates by rating (<span className="font-bold text-green-700">Top Fit</span>, <span className="font-bold text-orange-700">Maybe</span>, <span className="font-bold text-red-700">Not a Fit</span>, or <span className="font-bold">Unrated</span>).</span>
                                 </li>
                                 <li className="flex gap-2">
                                     <span className="font-bold text-blue-700">2.</span>
-                                    <span>Select the candidates you want to proceed with by clicking the <span className="font-bold">Select</span> button.</span>
+                                    <span><span className="font-bold">Update Ratings:</span> You can still adjust candidate ratings using the dropdown on each card if needed.</span>
                                 </li>
                                 <li className="flex gap-2">
                                     <span className="font-bold text-blue-700">3.</span>
-                                    <span>Click "Proceed to Checkout" at the bottom right to finalize.</span>
+                                    <span><span className="font-bold">Select for Checkout:</span> Click the <span className="font-bold">Select</span> button on candidates you want to proceed with for final checkout.</span>
+                                </li>
+                                <li className="flex gap-2">
+                                    <span className="font-bold text-blue-700">4.</span>
+                                    <span><span className="font-bold">Complete:</span> Click "Proceed to Checkout" at the bottom to finalize your selection and complete the process.</span>
                                 </li>
                             </ol>
                         </div>
@@ -867,52 +941,97 @@ function App() {
 
                 {/* 2.5 New: Discover Similar Candidates - Only on Details View */}
                 {!isShortlistView && (suggestions.domains.length > 0 || suggestions.functions.length > 0) && (
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6 mb-8 animate-in fade-in slide-in-from-top-4">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="p-1.5 bg-indigo-200 text-indigo-700 rounded-full">
-                                <Search size={18} />
+                    <div className="bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 border border-blue-200 rounded-2xl p-8 mb-8 animate-in fade-in slide-in-from-top-4 shadow-sm">
+                        <div className="flex items-start justify-between mb-6">
+                            <div>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="p-2 bg-blue-600 text-white rounded-lg shadow-md">
+                                        <Search size={24} />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-slate-900">Discover Similar Candidates</h3>
+                                </div>
+                                <p className="text-base text-slate-700 max-w-3xl leading-relaxed">
+                                     Expand your candidate pool by exploring groups with similar backgrounds, skills, and attributes.
+                                     <span className="font-semibold text-blue-800"> Click any category below to instantly add those candidates to your selection.</span>
+                                </p>
                             </div>
-                            <h3 className="text-lg font-bold text-indigo-900">Discover Similar Candidates</h3>
                         </div>
-                        <p className="text-sm text-indigo-800 mb-4 max-w-3xl">
-                             Based on the candidate distribution, here are other similar domain and functional skill groups you haven't selected yet. Click to add them to your view.
-                        </p>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {suggestions.domains.length > 0 && (
-                                <div>
-                                    <h4 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">Similar Past Domain Knowledge</h4>
+                                <div className="bg-white rounded-xl p-5 border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Network size={18} className="text-amber-600" />
+                                        <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Domain Knowledge</h4>
+                                    </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {suggestions.domains.map(([domain, ids]) => (
-                                            <button 
-                                                key={domain}
-                                                onClick={() => handleBatchSelect(ids)}
-                                                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 hover:border-indigo-300 transition-all shadow-sm group"
-                                            >
-                                                <span>{domain}</span>
-                                                <span className="bg-indigo-100 text-indigo-800 px-1.5 rounded text-xs group-hover:bg-indigo-200">+{ids.length}</span>
-                                                <PlusCircle size={14} className="opacity-50 group-hover:opacity-100" />
-                                            </button>
-                                        ))}
+                                        {suggestions.domains.map(([domain, data]) => {
+                                            const avgScore = Math.round(data.scores.reduce((sum, s) => sum + s, 0) / data.scores.length);
+                                            return (
+                                                <div key={domain} className="group relative">
+                                                    <button
+                                                        onClick={() => handleBatchSelect(data.ids)}
+                                                        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-amber-50 to-amber-100 border-2 border-amber-200 text-amber-900 rounded-lg text-sm font-semibold hover:from-amber-100 hover:to-amber-200 hover:border-amber-300 transition-all shadow-sm hover:shadow-md active:scale-95"
+                                                    >
+                                                        <span className="line-clamp-1">{domain}</span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full text-xs font-bold">
+                                                                {data.ids.length}
+                                                            </span>
+                                                            <PlusCircle size={16} className="text-amber-700" />
+                                                        </div>
+                                                    </button>
+                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                                                        <div className="bg-slate-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap max-w-xs">
+                                                            <div className="font-bold mb-1">Avg Score: {avgScore}</div>
+                                                            <div className="text-slate-300 text-[10px] max-h-20 overflow-y-auto">
+                                                                {data.names.slice(0, 5).join(', ')}
+                                                                {data.names.length > 5 && ` +${data.names.length - 5} more`}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
 
                             {suggestions.functions.length > 0 && (
-                                <div>
-                                    <h4 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">Similar Past Functional Skills</h4>
+                                <div className="bg-white rounded-xl p-5 border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Zap size={18} className="text-rose-600" />
+                                        <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Functional Skills</h4>
+                                    </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {suggestions.functions.map(([func, ids]) => (
-                                            <button 
-                                                key={func}
-                                                onClick={() => handleBatchSelect(ids)}
-                                                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 hover:border-indigo-300 transition-all shadow-sm group"
-                                            >
-                                                <span>{func}</span>
-                                                <span className="bg-indigo-100 text-indigo-800 px-1.5 rounded text-xs group-hover:bg-indigo-200">+{ids.length}</span>
-                                                <PlusCircle size={14} className="opacity-50 group-hover:opacity-100" />
-                                            </button>
-                                        ))}
+                                        {suggestions.functions.map(([func, data]) => {
+                                            const avgScore = Math.round(data.scores.reduce((sum, s) => sum + s, 0) / data.scores.length);
+                                            return (
+                                                <div key={func} className="group relative">
+                                                    <button
+                                                        onClick={() => handleBatchSelect(data.ids)}
+                                                        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-rose-50 to-rose-100 border-2 border-rose-200 text-rose-900 rounded-lg text-sm font-semibold hover:from-rose-100 hover:to-rose-200 hover:border-rose-300 transition-all shadow-sm hover:shadow-md active:scale-95"
+                                                    >
+                                                        <span className="line-clamp-1">{func}</span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full text-xs font-bold">
+                                                                {data.ids.length}
+                                                            </span>
+                                                            <PlusCircle size={16} className="text-rose-700" />
+                                                        </div>
+                                                    </button>
+                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                                                        <div className="bg-slate-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap max-w-xs">
+                                                            <div className="font-bold mb-1">Avg Score: {avgScore}</div>
+                                                            <div className="text-slate-300 text-[10px] max-h-20 overflow-y-auto">
+                                                                {data.names.slice(0, 5).join(', ')}
+                                                                {data.names.length > 5 && ` +${data.names.length - 5} more`}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
@@ -947,9 +1066,9 @@ function App() {
 
                 {/* 4. Unified Candidates Card */}
                 <div className="pb-24">
-                  <Card className="overflow-hidden border border-slate-200 shadow-sm">
-                    <div className="p-6 md:p-8">
-                      {itemsToShow.length === 0 ? (
+                  {itemsToShow.length === 0 ? (
+                    <Card className="overflow-hidden border border-slate-200 shadow-sm">
+                      <div className="p-6 md:p-8">
                         <div className="flex flex-col items-center justify-center py-12">
                             <div className="bg-slate-100 p-6 rounded-full mb-4">
                                 <Search size={48} className="text-slate-300" />
@@ -958,13 +1077,13 @@ function App() {
                                 No candidates found
                             </h3>
                             <p className="text-slate-500 mb-8 max-w-md text-center">
-                                {isShortlistView && shortlistFilter !== 'All' 
-                                    ? "No candidates match the selected filter criteria." 
+                                {isShortlistView && shortlistFilterRatings.size < 4
+                                    ? "No candidates match the selected filter criteria."
                                     : "There are no candidates to display in this view."}
                             </p>
                             <div className="flex gap-4">
-                                {isShortlistView && shortlistFilter !== 'All' ? (
-                                    <Button variant="secondary" onClick={() => setShortlistFilter('All')}>
+                                {isShortlistView && shortlistFilterRatings.size < 4 ? (
+                                    <Button variant="secondary" onClick={() => setShortlistFilterRatings(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']))}>
                                         Clear Filters
                                     </Button>
                                 ) : (
@@ -972,7 +1091,7 @@ function App() {
                                         <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
                                     </Button>
                                 )}
-                                
+
                                 {/* Show Proceed button here if we have items in the background */}
                                 {!isShortlistView && checkoutIds.size > 0 && (
                                     <Button onClick={() => setViewMode('shortlist')}>
@@ -981,16 +1100,34 @@ function App() {
                                 )}
                             </div>
                         </div>
-                      ) : (
-                        <div className="space-y-12">
-                            {itemsToShow.map((res, index) => {
+                      </div>
+                    </Card>
+                  ) : isShortlistView ? (
+                    // Shortlist View: Group by Rating
+                    <div className="space-y-8">
+                      {/* Top Fit Section */}
+                      {(() => {
+                        const topFitCandidates = itemsToShow.filter(r => candidateRatings[r.candidate.candidate_id] === 'Top Fit');
+                        return topFitCandidates.length > 0 && (
+                          <Card className="overflow-hidden border-2 border-green-300 shadow-md bg-green-50/30">
+                            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Check className="w-6 h-6" />
+                                <h3 className="text-xl font-bold">Top Fit</h3>
+                              </div>
+                              <Badge color="green" className="bg-green-500 text-white px-3 py-1 text-sm font-bold">
+                                {topFitCandidates.length} candidate{topFitCandidates.length !== 1 ? 's' : ''}
+                              </Badge>
+                            </div>
+                            <div className="p-6 space-y-12">
+                              {topFitCandidates.map((res, index) => {
                                 const isBookmarked = checkoutIds.has(res.candidate.candidate_id);
                                 const isPaymentSelected = paymentIds.has(res.candidate.candidate_id);
                                 const rating = candidateRatings[res.candidate.candidate_id] || '';
                                 const q = res.candidate.questionnaire;
-                                
+
                                 return (
-                                    <div key={res.candidate.candidate_id} className={index > 0 ? "pt-12 border-t border-slate-200" : ""}>
+                                    <div key={res.candidate.candidate_id} className={index > 0 ? "pt-12 border-t border-green-200" : ""}>
                                         
                                         {/* Candidate Header Row */}
                                         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
@@ -1187,32 +1324,654 @@ function App() {
 
                                     </div>
                                 );
-                            })}
-                        </div>
-                      )}
+                              })}
+                            </div>
+                          </Card>
+                        );
+                      })()}
 
-                      {/* Footer Buttons Logic */}
-                      
-                      {/* 1. Proceed to Shortlist Page (Details View) - Visible ONLY if items in view */}
-                      {!isShortlistView && itemsToShow.length > 0 && (
-                          <div className="mt-8 pt-8 border-t border-slate-100 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
-                             <Button 
-                                size="lg" 
-                                onClick={() => setViewMode('shortlist')} 
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg rounded-full flex items-center gap-2 font-bold shadow-xl transition-all hover:scale-105 pointer-events-auto"
-                            >
-                                <Bookmark className="w-5 h-5 fill-current" />
-                                Proceed to Shortlist Page ({checkoutIds.size})
-                            </Button>
-                          </div>
-                      )}
+                      {/* Maybe Section */}
+                      {(() => {
+                        const maybeCandidates = itemsToShow.filter(r => candidateRatings[r.candidate.candidate_id] === 'Maybe');
+                        return maybeCandidates.length > 0 && (
+                          <Card className="overflow-hidden border-2 border-orange-300 shadow-md bg-orange-50/30">
+                            <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-4 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Info className="w-6 h-6" />
+                                <h3 className="text-xl font-bold">Maybe</h3>
+                              </div>
+                              <Badge color="orange" className="bg-orange-500 text-white px-3 py-1 text-sm font-bold">
+                                {maybeCandidates.length} candidate{maybeCandidates.length !== 1 ? 's' : ''}
+                              </Badge>
+                            </div>
+                            <div className="p-6 space-y-12">
+                              {maybeCandidates.map((res, index) => {
+                                const isBookmarked = checkoutIds.has(res.candidate.candidate_id);
+                                const isPaymentSelected = paymentIds.has(res.candidate.candidate_id);
+                                const rating = candidateRatings[res.candidate.candidate_id] || '';
+                                const q = res.candidate.questionnaire;
 
-                      {/* 2. Proceed to Checkout (Shortlist View) - Visible ONLY if items in view and selected for payment */}
-                      {isShortlistView && paymentIds.size > 0 && itemsToShow.length > 0 && (
-                          <div className="mt-8 pt-8 border-t border-slate-100 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
-                             <Button 
-                                size="lg" 
-                                onClick={() => setIsCheckoutOpen(true)} 
+                                return (
+                                    <div key={res.candidate.candidate_id} className={index > 0 ? "pt-12 border-t border-orange-200" : ""}>
+
+                                        {/* Candidate Header Row */}
+                                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+                                            <div className="flex items-center gap-4">
+                                                {/* Avatar */}
+                                                <div className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-medium shadow-sm overflow-hidden">
+                                                    {/* Try to use profile picture if valid string, else fallback */}
+                                                    {res.candidate.profile_picture_url && res.candidate.profile_picture_url.length > 5 ? (
+                                                    <img src={res.candidate.profile_picture_url} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+                                                    ) : null}
+                                                    <span className={res.candidate.profile_picture_url && res.candidate.profile_picture_url.length > 5 ? 'hidden' : ''}>
+                                                        {res.candidate.first_name[0]}{res.candidate.last_name[0]}
+                                                    </span>
+                                                </div>
+
+                                                <div>
+                                                    <h3 className="text-2xl font-bold text-slate-900 leading-none mb-2">
+                                                        {res.candidate.first_name} {res.candidate.last_name}
+                                                    </h3>
+                                                    <div className="flex items-center gap-3">
+                                                        {/* Rank */}
+                                                        <div className="flex items-center gap-1 text-slate-600 font-medium">
+                                                            Rank:
+                                                            <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
+                                                                {res.rank}
+                                                            </span>
+                                                        </div>
+                                                        <div className="h-4 w-px bg-slate-300 mx-1"></div>
+                                                        {/* Match Score */}
+                                                        <div className="flex items-center gap-1 text-slate-600 font-medium">
+                                                            Match Score:
+                                                            <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-sm font-bold">
+                                                                {res.score}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Actions Right */}
+                                            <div className="flex items-center gap-3 self-end lg:self-auto">
+                                                {/* NEW RATING DROPDOWN */}
+                                                <div className="relative">
+                                                    <select
+                                                        value={rating}
+                                                        onChange={(e) => setCandidateRatings(prev => ({...prev, [res.candidate.candidate_id]: e.target.value}))}
+                                                        className={`
+                                                            appearance-none pl-3 pr-8 py-2 rounded-lg border font-bold text-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm
+                                                            ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700 hover:border-green-300' :
+                                                              rating === 'Maybe' ? 'bg-orange-50 border-orange-200 text-orange-700 hover:border-orange-300' :
+                                                              rating === 'Not a Fit' ? 'bg-red-50 border-red-200 text-red-700 hover:border-red-300' :
+                                                              'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'}
+                                                        `}
+                                                    >
+                                                        <option value="" disabled>Rate</option>
+                                                        <option value="Top Fit">Top Fit</option>
+                                                        <option value="Maybe">Maybe</option>
+                                                        <option value="Not a Fit">Not a Fit</option>
+                                                    </select>
+                                                    <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 ${rating ? 'text-current' : 'text-slate-400'}`}>
+                                                        <ChevronDown size={14} />
+                                                    </div>
+                                                </div>
+
+                                                {/* Bookmark / Shortlist Button */}
+                                                <button
+                                                    onClick={() => toggleShortlist(res.candidate.candidate_id)}
+                                                    className={`
+                                                        flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
+                                                        ${isBookmarked
+                                                            ? 'bg-blue-600 text-white border-blue-600'
+                                                            : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}
+                                                    `}
+                                                    title={isBookmarked ? "Remove from Shortlist" : "Add to Shortlist"}
+                                                >
+                                                    <Bookmark size={18} className={isBookmarked ? 'fill-current' : ''} />
+                                                    <span className="font-bold">{isBookmarked ? 'Shortlisted' : 'Shortlist'}</span>
+                                                </button>
+
+                                                {/* Final Select Button - Only in Shortlist View */}
+                                                <button
+                                                    onClick={() => togglePayment(res.candidate.candidate_id)}
+                                                    className={`
+                                                        flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
+                                                        ${isPaymentSelected
+                                                            ? 'bg-emerald-600 text-white border-emerald-600'
+                                                            : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300 hover:text-emerald-600'}
+                                                    `}
+                                                    title={isPaymentSelected ? "Selected for Checkout" : "Select for Checkout"}
+                                                >
+                                                    {isPaymentSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                    <span className="font-bold">{isPaymentSelected ? 'Selected' : 'Select'}</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* PURPLE SECTION: Matching Details */}
+                                        <div className="bg-purple-50 rounded-lg border border-purple-100 p-5 mb-4">
+                                            <h4 className="text-lg font-bold text-slate-900 mb-4">Matching Details</h4>
+                                            <h5 className="text-base font-bold text-slate-700 mb-2">Number of Matches</h5>
+
+                                            <div className="mb-2">
+                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">PAST & CURRENT</span>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {res.details.breakdown.filter(b => b.pastCurrentMatches.length > 0).map((item, idx) => (
+                                                    <div key={idx} className="bg-white rounded-lg border border-purple-100 p-3 shadow-sm">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="text-green-600"><Check size={16} /></div>
+                                                                <span className="font-bold text-slate-900 capitalize">{item.category}</span>
+                                                            </div>
+                                                            <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded">
+                                                                {item.pastCurrentMatches.length * 3}
+                                                            </span>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            {item.pastCurrentMatches.map((m, mIdx) => (
+                                                                <div key={mIdx} className="bg-green-50 border border-green-100 text-green-700 text-sm px-3 py-1.5 rounded-md">
+                                                                    {m}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {res.details.breakdown.every(b => b.pastCurrentMatches.length === 0) && (
+                                                    <p className="text-sm text-slate-500 italic">No past & current matches.</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                            {/* ORANGE SECTION: Elimination Criteria */}
+                                            <div className="bg-orange-50 rounded-lg border border-orange-100 p-5 h-full">
+                                                <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria - basic information</h4>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    {/* Row 1 */}
+                                                    <CriteriaItem label="Age" value={res.candidate.age} />
+                                                    <CriteriaItem label="Gender" value={res.candidate.gender} />
+                                                    <CriteriaItem label="DOB" value={res.candidate.date_of_birth} />
+
+                                                    {/* Row 2 */}
+                                                    <CriteriaItem label="Nationality" value={res.candidate.nationality} />
+                                                    <CriteriaItem label="Birth Country" value={res.candidate.country_of_birth} />
+
+                                                    {/* Row 3 */}
+                                                    <CriteriaItem label="Current Country" value={res.candidate.current_country} />
+                                                    <CriteriaItem label="Min Salary" value={`$${res.candidate.minimum_expected_salary_monthly.toLocaleString()}`} />
+                                                    <CriteriaItem label="Availability" value={res.candidate.availability} />
+                                                    <CriteriaItem label="Visa Status" value={res.candidate.visa_status} />
+
+                                                    {/* Row 4: New Profile Data */}
+                                                    {res.candidate.fitness_level && <CriteriaItem label="Fitness" value={res.candidate.fitness_level} />}
+                                                    {res.candidate.height_cm && <CriteriaItem label="Height" value={`${res.candidate.height_cm} cm`} />}
+                                                    {res.candidate.weight_kg && <CriteriaItem label="Weight" value={`${res.candidate.weight_kg} kg`} />}
+
+                                                    <CriteriaItem label="Email" value={res.candidate.email} className="md:col-span-2 break-all" />
+                                                    <CriteriaItem label="Phone" value={res.candidate.phone} className="md:col-span-2" />
+                                                </div>
+                                            </div>
+
+                                            {/* CYAN SECTION: Questionnaire */}
+                                            {q && (
+                                                <div className="bg-cyan-50 rounded-lg border border-cyan-100 p-5 h-full">
+                                                    <div className="flex items-center gap-2 mb-4">
+                                                        <h4 className="text-lg font-bold text-slate-900">Elimination Criteria - yes or no question</h4>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        <QuestionItem question="Are you willing to work overtime" answer={q.q1_overtime_or_weekends} />
+                                                        <QuestionItem question="Do you have driving License" answer={q.q2_driving_license} />
+                                                        <QuestionItem question="Do you own a car" answer={q.q3_own_car} />
+                                                        <QuestionItem question="Are you willing to travel" answer={q.q4_willing_to_travel} />
+                                                        <QuestionItem question="Do you need disability support" answer={q.q5_disability_support} />
+                                                        <QuestionItem question="Are you willing to relocate" answer={q.q6_willing_to_relocate} />
+                                                        <QuestionItem question="Are you comfortable with background checks" answer={q.q7_comfortable_with_background_checks} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                    </div>
+                                );
+                              })}
+                            </div>
+                          </Card>
+                        );
+                      })()}
+
+                      {/* Not a Fit Section */}
+                      {(() => {
+                        const notFitCandidates = itemsToShow.filter(r => candidateRatings[r.candidate.candidate_id] === 'Not a Fit');
+                        return notFitCandidates.length > 0 && (
+                          <Card className="overflow-hidden border-2 border-red-300 shadow-md bg-red-50/30">
+                            <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-4 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <X className="w-6 h-6" />
+                                <h3 className="text-xl font-bold">Not a Fit</h3>
+                              </div>
+                              <Badge color="rose" className="bg-red-500 text-white px-3 py-1 text-sm font-bold">
+                                {notFitCandidates.length} candidate{notFitCandidates.length !== 1 ? 's' : ''}
+                              </Badge>
+                            </div>
+                            <div className="p-6 space-y-12">
+                              {notFitCandidates.map((res, index) => {
+                                const isBookmarked = checkoutIds.has(res.candidate.candidate_id);
+                                const isPaymentSelected = paymentIds.has(res.candidate.candidate_id);
+                                const rating = candidateRatings[res.candidate.candidate_id] || '';
+                                const q = res.candidate.questionnaire;
+
+                                return (
+                                    <div key={res.candidate.candidate_id} className={index > 0 ? "pt-12 border-t border-red-200" : ""}>
+
+                                        {/* Candidate Header Row */}
+                                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+                                            <div className="flex items-center gap-4">
+                                                {/* Avatar */}
+                                                <div className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-medium shadow-sm overflow-hidden">
+                                                    {/* Try to use profile picture if valid string, else fallback */}
+                                                    {res.candidate.profile_picture_url && res.candidate.profile_picture_url.length > 5 ? (
+                                                    <img src={res.candidate.profile_picture_url} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+                                                    ) : null}
+                                                    <span className={res.candidate.profile_picture_url && res.candidate.profile_picture_url.length > 5 ? 'hidden' : ''}>
+                                                        {res.candidate.first_name[0]}{res.candidate.last_name[0]}
+                                                    </span>
+                                                </div>
+
+                                                <div>
+                                                    <h3 className="text-2xl font-bold text-slate-900 leading-none mb-2">
+                                                        {res.candidate.first_name} {res.candidate.last_name}
+                                                    </h3>
+                                                    <div className="flex items-center gap-3">
+                                                        {/* Rank */}
+                                                        <div className="flex items-center gap-1 text-slate-600 font-medium">
+                                                            Rank:
+                                                            <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
+                                                                {res.rank}
+                                                            </span>
+                                                        </div>
+                                                        <div className="h-4 w-px bg-slate-300 mx-1"></div>
+                                                        {/* Match Score */}
+                                                        <div className="flex items-center gap-1 text-slate-600 font-medium">
+                                                            Match Score:
+                                                            <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-sm font-bold">
+                                                                {res.score}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Actions Right */}
+                                            <div className="flex items-center gap-3 self-end lg:self-auto">
+                                                {/* NEW RATING DROPDOWN */}
+                                                <div className="relative">
+                                                    <select
+                                                        value={rating}
+                                                        onChange={(e) => setCandidateRatings(prev => ({...prev, [res.candidate.candidate_id]: e.target.value}))}
+                                                        className={`
+                                                            appearance-none pl-3 pr-8 py-2 rounded-lg border font-bold text-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm
+                                                            ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700 hover:border-green-300' :
+                                                              rating === 'Maybe' ? 'bg-orange-50 border-orange-200 text-orange-700 hover:border-orange-300' :
+                                                              rating === 'Not a Fit' ? 'bg-red-50 border-red-200 text-red-700 hover:border-red-300' :
+                                                              'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'}
+                                                        `}
+                                                    >
+                                                        <option value="" disabled>Rate</option>
+                                                        <option value="Top Fit">Top Fit</option>
+                                                        <option value="Maybe">Maybe</option>
+                                                        <option value="Not a Fit">Not a Fit</option>
+                                                    </select>
+                                                    <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 ${rating ? 'text-current' : 'text-slate-400'}`}>
+                                                        <ChevronDown size={14} />
+                                                    </div>
+                                                </div>
+
+                                                {/* Bookmark / Shortlist Button */}
+                                                <button
+                                                    onClick={() => toggleShortlist(res.candidate.candidate_id)}
+                                                    className={`
+                                                        flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
+                                                        ${isBookmarked
+                                                            ? 'bg-blue-600 text-white border-blue-600'
+                                                            : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}
+                                                    `}
+                                                    title={isBookmarked ? "Remove from Shortlist" : "Add to Shortlist"}
+                                                >
+                                                    <Bookmark size={18} className={isBookmarked ? 'fill-current' : ''} />
+                                                    <span className="font-bold">{isBookmarked ? 'Shortlisted' : 'Shortlist'}</span>
+                                                </button>
+
+                                                {/* Final Select Button - Only in Shortlist View */}
+                                                <button
+                                                    onClick={() => togglePayment(res.candidate.candidate_id)}
+                                                    className={`
+                                                        flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
+                                                        ${isPaymentSelected
+                                                            ? 'bg-emerald-600 text-white border-emerald-600'
+                                                            : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300 hover:text-emerald-600'}
+                                                    `}
+                                                    title={isPaymentSelected ? "Selected for Checkout" : "Select for Checkout"}
+                                                >
+                                                    {isPaymentSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                    <span className="font-bold">{isPaymentSelected ? 'Selected' : 'Select'}</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* PURPLE SECTION: Matching Details */}
+                                        <div className="bg-purple-50 rounded-lg border border-purple-100 p-5 mb-4">
+                                            <h4 className="text-lg font-bold text-slate-900 mb-4">Matching Details</h4>
+                                            <h5 className="text-base font-bold text-slate-700 mb-2">Number of Matches</h5>
+
+                                            <div className="mb-2">
+                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">PAST & CURRENT</span>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {res.details.breakdown.filter(b => b.pastCurrentMatches.length > 0).map((item, idx) => (
+                                                    <div key={idx} className="bg-white rounded-lg border border-purple-100 p-3 shadow-sm">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="text-green-600"><Check size={16} /></div>
+                                                                <span className="font-bold text-slate-900 capitalize">{item.category}</span>
+                                                            </div>
+                                                            <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded">
+                                                                {item.pastCurrentMatches.length * 3}
+                                                            </span>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            {item.pastCurrentMatches.map((m, mIdx) => (
+                                                                <div key={mIdx} className="bg-green-50 border border-green-100 text-green-700 text-sm px-3 py-1.5 rounded-md">
+                                                                    {m}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {res.details.breakdown.every(b => b.pastCurrentMatches.length === 0) && (
+                                                    <p className="text-sm text-slate-500 italic">No past & current matches.</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                            {/* ORANGE SECTION: Elimination Criteria */}
+                                            <div className="bg-orange-50 rounded-lg border border-orange-100 p-5 h-full">
+                                                <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria - basic information</h4>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    {/* Row 1 */}
+                                                    <CriteriaItem label="Age" value={res.candidate.age} />
+                                                    <CriteriaItem label="Gender" value={res.candidate.gender} />
+                                                    <CriteriaItem label="DOB" value={res.candidate.date_of_birth} />
+
+                                                    {/* Row 2 */}
+                                                    <CriteriaItem label="Nationality" value={res.candidate.nationality} />
+                                                    <CriteriaItem label="Birth Country" value={res.candidate.country_of_birth} />
+
+                                                    {/* Row 3 */}
+                                                    <CriteriaItem label="Current Country" value={res.candidate.current_country} />
+                                                    <CriteriaItem label="Min Salary" value={`$${res.candidate.minimum_expected_salary_monthly.toLocaleString()}`} />
+                                                    <CriteriaItem label="Availability" value={res.candidate.availability} />
+                                                    <CriteriaItem label="Visa Status" value={res.candidate.visa_status} />
+
+                                                    {/* Row 4: New Profile Data */}
+                                                    {res.candidate.fitness_level && <CriteriaItem label="Fitness" value={res.candidate.fitness_level} />}
+                                                    {res.candidate.height_cm && <CriteriaItem label="Height" value={`${res.candidate.height_cm} cm`} />}
+                                                    {res.candidate.weight_kg && <CriteriaItem label="Weight" value={`${res.candidate.weight_kg} kg`} />}
+
+                                                    <CriteriaItem label="Email" value={res.candidate.email} className="md:col-span-2 break-all" />
+                                                    <CriteriaItem label="Phone" value={res.candidate.phone} className="md:col-span-2" />
+                                                </div>
+                                            </div>
+
+                                            {/* CYAN SECTION: Questionnaire */}
+                                            {q && (
+                                                <div className="bg-cyan-50 rounded-lg border border-cyan-100 p-5 h-full">
+                                                    <div className="flex items-center gap-2 mb-4">
+                                                        <h4 className="text-lg font-bold text-slate-900">Elimination Criteria - yes or no question</h4>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        <QuestionItem question="Are you willing to work overtime" answer={q.q1_overtime_or_weekends} />
+                                                        <QuestionItem question="Do you have driving License" answer={q.q2_driving_license} />
+                                                        <QuestionItem question="Do you own a car" answer={q.q3_own_car} />
+                                                        <QuestionItem question="Are you willing to travel" answer={q.q4_willing_to_travel} />
+                                                        <QuestionItem question="Do you need disability support" answer={q.q5_disability_support} />
+                                                        <QuestionItem question="Are you willing to relocate" answer={q.q6_willing_to_relocate} />
+                                                        <QuestionItem question="Are you comfortable with background checks" answer={q.q7_comfortable_with_background_checks} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                    </div>
+                                );
+                              })}
+                            </div>
+                          </Card>
+                        );
+                      })()}
+
+                      {/* Unrated Section */}
+                      {(() => {
+                        const unratedCandidates = itemsToShow.filter(r => !candidateRatings[r.candidate.candidate_id]);
+                        return unratedCandidates.length > 0 && (
+                          <Card className="overflow-hidden border-2 border-slate-300 shadow-md bg-slate-50/30">
+                            <div className="bg-gradient-to-r from-slate-600 to-slate-700 text-white p-4 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Activity className="w-6 h-6" />
+                                <h3 className="text-xl font-bold">Unrated</h3>
+                              </div>
+                              <Badge color="slate" className="bg-slate-500 text-white px-3 py-1 text-sm font-bold">
+                                {unratedCandidates.length} candidate{unratedCandidates.length !== 1 ? 's' : ''}
+                              </Badge>
+                            </div>
+                            <div className="p-6 space-y-12">
+                              {unratedCandidates.map((res, index) => {
+                                const isBookmarked = checkoutIds.has(res.candidate.candidate_id);
+                                const isPaymentSelected = paymentIds.has(res.candidate.candidate_id);
+                                const rating = candidateRatings[res.candidate.candidate_id] || '';
+                                const q = res.candidate.questionnaire;
+
+                                return (
+                                    <div key={res.candidate.candidate_id} className={index > 0 ? "pt-12 border-t border-slate-200" : ""}>
+
+                                        {/* Candidate Header Row */}
+                                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+                                            <div className="flex items-center gap-4">
+                                                {/* Avatar */}
+                                                <div className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-medium shadow-sm overflow-hidden">
+                                                    {/* Try to use profile picture if valid string, else fallback */}
+                                                    {res.candidate.profile_picture_url && res.candidate.profile_picture_url.length > 5 ? (
+                                                    <img src={res.candidate.profile_picture_url} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+                                                    ) : null}
+                                                    <span className={res.candidate.profile_picture_url && res.candidate.profile_picture_url.length > 5 ? 'hidden' : ''}>
+                                                        {res.candidate.first_name[0]}{res.candidate.last_name[0]}
+                                                    </span>
+                                                </div>
+
+                                                <div>
+                                                    <h3 className="text-2xl font-bold text-slate-900 leading-none mb-2">
+                                                        {res.candidate.first_name} {res.candidate.last_name}
+                                                    </h3>
+                                                    <div className="flex items-center gap-3">
+                                                        {/* Rank */}
+                                                        <div className="flex items-center gap-1 text-slate-600 font-medium">
+                                                            Rank:
+                                                            <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
+                                                                {res.rank}
+                                                            </span>
+                                                        </div>
+                                                        <div className="h-4 w-px bg-slate-300 mx-1"></div>
+                                                        {/* Match Score */}
+                                                        <div className="flex items-center gap-1 text-slate-600 font-medium">
+                                                            Match Score:
+                                                            <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-sm font-bold">
+                                                                {res.score}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Actions Right */}
+                                            <div className="flex items-center gap-3 self-end lg:self-auto">
+                                                {/* NEW RATING DROPDOWN */}
+                                                <div className="relative">
+                                                    <select
+                                                        value={rating}
+                                                        onChange={(e) => setCandidateRatings(prev => ({...prev, [res.candidate.candidate_id]: e.target.value}))}
+                                                        className={`
+                                                            appearance-none pl-3 pr-8 py-2 rounded-lg border font-bold text-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm
+                                                            ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700 hover:border-green-300' :
+                                                              rating === 'Maybe' ? 'bg-orange-50 border-orange-200 text-orange-700 hover:border-orange-300' :
+                                                              rating === 'Not a Fit' ? 'bg-red-50 border-red-200 text-red-700 hover:border-red-300' :
+                                                              'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'}
+                                                        `}
+                                                    >
+                                                        <option value="" disabled>Rate</option>
+                                                        <option value="Top Fit">Top Fit</option>
+                                                        <option value="Maybe">Maybe</option>
+                                                        <option value="Not a Fit">Not a Fit</option>
+                                                    </select>
+                                                    <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 ${rating ? 'text-current' : 'text-slate-400'}`}>
+                                                        <ChevronDown size={14} />
+                                                    </div>
+                                                </div>
+
+                                                {/* Bookmark / Shortlist Button */}
+                                                <button
+                                                    onClick={() => toggleShortlist(res.candidate.candidate_id)}
+                                                    className={`
+                                                        flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
+                                                        ${isBookmarked
+                                                            ? 'bg-blue-600 text-white border-blue-600'
+                                                            : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}
+                                                    `}
+                                                    title={isBookmarked ? "Remove from Shortlist" : "Add to Shortlist"}
+                                                >
+                                                    <Bookmark size={18} className={isBookmarked ? 'fill-current' : ''} />
+                                                    <span className="font-bold">{isBookmarked ? 'Shortlisted' : 'Shortlist'}</span>
+                                                </button>
+
+                                                {/* Final Select Button - Only in Shortlist View */}
+                                                <button
+                                                    onClick={() => togglePayment(res.candidate.candidate_id)}
+                                                    className={`
+                                                        flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
+                                                        ${isPaymentSelected
+                                                            ? 'bg-emerald-600 text-white border-emerald-600'
+                                                            : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300 hover:text-emerald-600'}
+                                                    `}
+                                                    title={isPaymentSelected ? "Selected for Checkout" : "Select for Checkout"}
+                                                >
+                                                    {isPaymentSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                    <span className="font-bold">{isPaymentSelected ? 'Selected' : 'Select'}</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* PURPLE SECTION: Matching Details */}
+                                        <div className="bg-purple-50 rounded-lg border border-purple-100 p-5 mb-4">
+                                            <h4 className="text-lg font-bold text-slate-900 mb-4">Matching Details</h4>
+                                            <h5 className="text-base font-bold text-slate-700 mb-2">Number of Matches</h5>
+
+                                            <div className="mb-2">
+                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">PAST & CURRENT</span>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {res.details.breakdown.filter(b => b.pastCurrentMatches.length > 0).map((item, idx) => (
+                                                    <div key={idx} className="bg-white rounded-lg border border-purple-100 p-3 shadow-sm">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="text-green-600"><Check size={16} /></div>
+                                                                <span className="font-bold text-slate-900 capitalize">{item.category}</span>
+                                                            </div>
+                                                            <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded">
+                                                                {item.pastCurrentMatches.length * 3}
+                                                            </span>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            {item.pastCurrentMatches.map((m, mIdx) => (
+                                                                <div key={mIdx} className="bg-green-50 border border-green-100 text-green-700 text-sm px-3 py-1.5 rounded-md">
+                                                                    {m}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {res.details.breakdown.every(b => b.pastCurrentMatches.length === 0) && (
+                                                    <p className="text-sm text-slate-500 italic">No past & current matches.</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                            {/* ORANGE SECTION: Elimination Criteria */}
+                                            <div className="bg-orange-50 rounded-lg border border-orange-100 p-5 h-full">
+                                                <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria - basic information</h4>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    {/* Row 1 */}
+                                                    <CriteriaItem label="Age" value={res.candidate.age} />
+                                                    <CriteriaItem label="Gender" value={res.candidate.gender} />
+                                                    <CriteriaItem label="DOB" value={res.candidate.date_of_birth} />
+
+                                                    {/* Row 2 */}
+                                                    <CriteriaItem label="Nationality" value={res.candidate.nationality} />
+                                                    <CriteriaItem label="Birth Country" value={res.candidate.country_of_birth} />
+
+                                                    {/* Row 3 */}
+                                                    <CriteriaItem label="Current Country" value={res.candidate.current_country} />
+                                                    <CriteriaItem label="Min Salary" value={`$${res.candidate.minimum_expected_salary_monthly.toLocaleString()}`} />
+                                                    <CriteriaItem label="Availability" value={res.candidate.availability} />
+                                                    <CriteriaItem label="Visa Status" value={res.candidate.visa_status} />
+
+                                                    {/* Row 4: New Profile Data */}
+                                                    {res.candidate.fitness_level && <CriteriaItem label="Fitness" value={res.candidate.fitness_level} />}
+                                                    {res.candidate.height_cm && <CriteriaItem label="Height" value={`${res.candidate.height_cm} cm`} />}
+                                                    {res.candidate.weight_kg && <CriteriaItem label="Weight" value={`${res.candidate.weight_kg} kg`} />}
+
+                                                    <CriteriaItem label="Email" value={res.candidate.email} className="md:col-span-2 break-all" />
+                                                    <CriteriaItem label="Phone" value={res.candidate.phone} className="md:col-span-2" />
+                                                </div>
+                                            </div>
+
+                                            {/* CYAN SECTION: Questionnaire */}
+                                            {q && (
+                                                <div className="bg-cyan-50 rounded-lg border border-cyan-100 p-5 h-full">
+                                                    <div className="flex items-center gap-2 mb-4">
+                                                        <h4 className="text-lg font-bold text-slate-900">Elimination Criteria - yes or no question</h4>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        <QuestionItem question="Are you willing to work overtime" answer={q.q1_overtime_or_weekends} />
+                                                        <QuestionItem question="Do you have driving License" answer={q.q2_driving_license} />
+                                                        <QuestionItem question="Do you own a car" answer={q.q3_own_car} />
+                                                        <QuestionItem question="Are you willing to travel" answer={q.q4_willing_to_travel} />
+                                                        <QuestionItem question="Do you need disability support" answer={q.q5_disability_support} />
+                                                        <QuestionItem question="Are you willing to relocate" answer={q.q6_willing_to_relocate} />
+                                                        <QuestionItem question="Are you comfortable with background checks" answer={q.q7_comfortable_with_background_checks} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                    </div>
+                                );
+                              })}
+                            </div>
+                          </Card>
+                        );
+                      })()}
+
+                      {/* Proceed to Checkout Button - Only shown in Shortlist view if payment selected */}
+                      {paymentIds.size > 0 && (
+                          <div className="mt-8 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
+                             <Button
+                                size="lg"
+                                onClick={() => setIsCheckoutOpen(true)}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 text-lg rounded-full flex items-center gap-2 font-bold shadow-xl transition-all hover:scale-105 pointer-events-auto"
                             >
                                 <ShoppingCart className="w-5 h-5" />
@@ -1220,9 +1979,202 @@ function App() {
                             </Button>
                           </div>
                       )}
-
                     </div>
-                  </Card>
+                  ) : (
+                    // Details View: Show all in single card
+                    <Card className="overflow-hidden border border-slate-200 shadow-sm">
+                      <div className="p-6 md:p-8">
+                        <div className="space-y-12">
+                            {itemsToShow.map((res, index) => {
+                                const isBookmarked = checkoutIds.has(res.candidate.candidate_id);
+                                const isPaymentSelected = paymentIds.has(res.candidate.candidate_id);
+                                const rating = candidateRatings[res.candidate.candidate_id] || '';
+                                const q = res.candidate.questionnaire;
+
+                                return (
+                                    <div key={res.candidate.candidate_id} className={index > 0 ? "pt-12 border-t border-slate-200" : ""}>
+
+                                        {/* Candidate Header Row */}
+                                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+                                            <div className="flex items-center gap-4">
+                                                {/* Avatar */}
+                                                <div className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-medium shadow-sm overflow-hidden">
+                                                    {res.candidate.profile_picture_url && res.candidate.profile_picture_url.length > 5 ? (
+                                                    <img src={res.candidate.profile_picture_url} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+                                                    ) : null}
+                                                    <span className={res.candidate.profile_picture_url && res.candidate.profile_picture_url.length > 5 ? 'hidden' : ''}>
+                                                        {res.candidate.first_name[0]}{res.candidate.last_name[0]}
+                                                    </span>
+                                                </div>
+
+                                                <div>
+                                                    <h3 className="text-2xl font-bold text-slate-900 leading-none mb-2">
+                                                        {res.candidate.first_name} {res.candidate.last_name}
+                                                    </h3>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-1 text-slate-600 font-medium">
+                                                            Rank:
+                                                            <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
+                                                                {res.rank}
+                                                            </span>
+                                                        </div>
+                                                        <div className="h-4 w-px bg-slate-300 mx-1"></div>
+                                                        <div className="flex items-center gap-1 text-slate-600 font-medium">
+                                                            Match Score:
+                                                            <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-sm font-bold">
+                                                                {res.score}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Actions Right */}
+                                            <div className="flex items-center gap-3 self-end lg:self-auto">
+                                                <div className="relative">
+                                                    <select
+                                                        value={rating}
+                                                        onChange={(e) => setCandidateRatings(prev => ({...prev, [res.candidate.candidate_id]: e.target.value}))}
+                                                        className={`
+                                                            appearance-none pl-3 pr-8 py-2 rounded-lg border font-bold text-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm
+                                                            ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700 hover:border-green-300' :
+                                                              rating === 'Maybe' ? 'bg-orange-50 border-orange-200 text-orange-700 hover:border-orange-300' :
+                                                              rating === 'Not a Fit' ? 'bg-red-50 border-red-200 text-red-700 hover:border-red-300' :
+                                                              'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'}
+                                                        `}
+                                                    >
+                                                        <option value="" disabled>Rate</option>
+                                                        <option value="Top Fit">Top Fit</option>
+                                                        <option value="Maybe">Maybe</option>
+                                                        <option value="Not a Fit">Not a Fit</option>
+                                                    </select>
+                                                    <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 ${rating ? 'text-current' : 'text-slate-400'}`}>
+                                                        <ChevronDown size={14} />
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => toggleShortlist(res.candidate.candidate_id)}
+                                                    className={`
+                                                        flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
+                                                        ${isBookmarked
+                                                            ? 'bg-blue-600 text-white border-blue-600'
+                                                            : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}
+                                                    `}
+                                                    title={isBookmarked ? "Remove from Shortlist" : "Add to Shortlist"}
+                                                >
+                                                    <Bookmark size={18} className={isBookmarked ? 'fill-current' : ''} />
+                                                    <span className="font-bold">{isBookmarked ? 'Shortlisted' : 'Shortlist'}</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleRemoveFromView(res.candidate.candidate_id)}
+                                                    className="p-2.5 rounded-lg border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 transition-colors"
+                                                    title="Remove from View"
+                                                >
+                                                    <X size={20} />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* PURPLE SECTION: Matching Details */}
+                                        <div className="bg-purple-50 rounded-lg border border-purple-100 p-5 mb-4">
+                                            <h4 className="text-lg font-bold text-slate-900 mb-4">Matching Details</h4>
+                                            <h5 className="text-base font-bold text-slate-700 mb-2">Number of Matches</h5>
+
+                                            <div className="mb-2">
+                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">PAST & CURRENT</span>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {res.details.breakdown.filter(b => b.pastCurrentMatches.length > 0).map((item, idx) => (
+                                                    <div key={idx} className="bg-white rounded-lg border border-purple-100 p-3 shadow-sm">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="text-green-600"><Check size={16} /></div>
+                                                                <span className="font-bold text-slate-900 capitalize">{item.category}</span>
+                                                            </div>
+                                                            <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded">
+                                                                {item.pastCurrentMatches.length * 3}
+                                                            </span>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            {item.pastCurrentMatches.map((m, mIdx) => (
+                                                                <div key={mIdx} className="bg-green-50 border border-green-100 text-green-700 text-sm px-3 py-1.5 rounded-md">
+                                                                    {m}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {res.details.breakdown.every(b => b.pastCurrentMatches.length === 0) && (
+                                                    <p className="text-sm text-slate-500 italic">No past & current matches.</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                            {/* ORANGE SECTION: Elimination Criteria */}
+                                            <div className="bg-orange-50 rounded-lg border border-orange-100 p-5 h-full">
+                                                <h4 className="text-lg font-bold text-slate-900 mb-4">Elimination Criteria - basic information</h4>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    <CriteriaItem label="Age" value={res.candidate.age} />
+                                                    <CriteriaItem label="Gender" value={res.candidate.gender} />
+                                                    <CriteriaItem label="DOB" value={res.candidate.date_of_birth} />
+                                                    <CriteriaItem label="Nationality" value={res.candidate.nationality} />
+                                                    <CriteriaItem label="Birth Country" value={res.candidate.country_of_birth} />
+                                                    <CriteriaItem label="Current Country" value={res.candidate.current_country} />
+                                                    <CriteriaItem label="Min Salary" value={`$${res.candidate.minimum_expected_salary_monthly.toLocaleString()}`} />
+                                                    <CriteriaItem label="Availability" value={res.candidate.availability} />
+                                                    <CriteriaItem label="Visa Status" value={res.candidate.visa_status} />
+                                                    {res.candidate.fitness_level && <CriteriaItem label="Fitness" value={res.candidate.fitness_level} />}
+                                                    {res.candidate.height_cm && <CriteriaItem label="Height" value={`${res.candidate.height_cm} cm`} />}
+                                                    {res.candidate.weight_kg && <CriteriaItem label="Weight" value={`${res.candidate.weight_kg} kg`} />}
+                                                    <CriteriaItem label="Email" value={res.candidate.email} className="md:col-span-2 break-all" />
+                                                    <CriteriaItem label="Phone" value={res.candidate.phone} className="md:col-span-2" />
+                                                </div>
+                                            </div>
+
+                                            {/* CYAN SECTION: Questionnaire */}
+                                            {q && (
+                                                <div className="bg-cyan-50 rounded-lg border border-cyan-100 p-5 h-full">
+                                                    <div className="flex items-center gap-2 mb-4">
+                                                        <h4 className="text-lg font-bold text-slate-900">Elimination Criteria - yes or no question</h4>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        <QuestionItem question="Are you willing to work overtime" answer={q.q1_overtime_or_weekends} />
+                                                        <QuestionItem question="Do you have driving License" answer={q.q2_driving_license} />
+                                                        <QuestionItem question="Do you own a car" answer={q.q3_own_car} />
+                                                        <QuestionItem question="Are you willing to travel" answer={q.q4_willing_to_travel} />
+                                                        <QuestionItem question="Do you need disability support" answer={q.q5_disability_support} />
+                                                        <QuestionItem question="Are you willing to relocate" answer={q.q6_willing_to_relocate} />
+                                                        <QuestionItem question="Are you comfortable with background checks" answer={q.q7_comfortable_with_background_checks} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Proceed to Shortlist Page Button - Details View */}
+                        {itemsToShow.length > 0 && (
+                          <div className="mt-8 pt-8 border-t border-slate-100 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
+                             <Button
+                                size="lg"
+                                onClick={() => setViewMode('shortlist')}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg rounded-full flex items-center gap-2 font-bold shadow-xl transition-all hover:scale-105 pointer-events-auto"
+                            >
+                                <Bookmark className="w-5 h-5 fill-current" />
+                                Proceed to Shortlist Page ({checkoutIds.size})
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  )}
                 </div>
               </div>
             )}
