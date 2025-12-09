@@ -186,7 +186,7 @@ export const DistributionPage: React.FC<DistributionPageProps> = ({
             </div>
             <div ref={chartRefs.domain}>
                 <Histogram
-                title="Past Domain Knowledge 1 Distribution"
+                title="Past Domain Experience Knowledge Skills 1"
                 data={matchResults}
                 colorTheme="amber"
                 bucketType="category"
