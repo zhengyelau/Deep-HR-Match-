@@ -138,8 +138,8 @@ function App() {
             }
           });
 
-          setCandidateRatings(ratings);
-          setCheckoutIds(shortlisted);
+          // setCandidateRatings(ratings);
+          // setCheckoutIds(shortlisted);
         } catch (error) {
           console.error('Error processing match results:', error);
           // Fallback to calculating fresh results on error
