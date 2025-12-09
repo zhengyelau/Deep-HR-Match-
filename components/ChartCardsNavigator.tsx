@@ -14,7 +14,7 @@ export const ChartCardsNavigator: React.FC<ChartCardsNavigatorProps> = ({ onScro
     { id: 'education', label: 'Education Subject 1', icon: BookOpen, color: 'bg-sky-50 border-sky-200 text-sky-800' },
     { id: 'major', label: 'University Major', icon: GraduationCap, color: 'bg-cyan-50 border-cyan-200 text-cyan-800' },
     { id: 'function', label: 'Past Functional Skills 1', icon: Zap, color: 'bg-rose-50 border-rose-200 text-rose-800' },
-    { id: 'domain', label: 'Past Domain Knowledge 1', icon: Network, color: 'bg-amber-50 border-amber-200 text-amber-800' },
+    { id: 'domain', label: 'Past Domain Experience Knowledge Skills 1', icon: Network, color: 'bg-amber-50 border-amber-200 text-amber-800' },
   ];
 
   return (
