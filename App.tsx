@@ -1200,13 +1200,14 @@ function App() {
                                                 </div>
 
                                                 {/* Bookmark / Shortlist Button */}
-                                                <button 
+                                                <button
                                                     onClick={() => toggleShortlist(res.candidate.candidate_id)}
                                                     className={`
                                                         flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
-                                                        ${isBookmarked 
-                                                            ? 'bg-blue-600 text-white border-blue-600' 
+                                                        ${isBookmarked
+                                                            ? 'bg-blue-600 text-white border-blue-600'
                                                             : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}
+                                                        ${!isBookmarked && (rating === 'Top Fit' || rating === 'Maybe') ? 'pulse-shortlist' : ''}
                                                     `}
                                                     title={isBookmarked ? "Remove from Shortlist" : "Add to Shortlist"}
                                                 >
@@ -1432,6 +1433,7 @@ function App() {
                                                         ${isBookmarked
                                                             ? 'bg-blue-600 text-white border-blue-600'
                                                             : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}
+                                                        ${!isBookmarked && (rating === 'Top Fit' || rating === 'Maybe') ? 'pulse-shortlist' : ''}
                                                     `}
                                                     title={isBookmarked ? "Remove from Shortlist" : "Add to Shortlist"}
                                                 >
@@ -1644,6 +1646,7 @@ function App() {
                                                         ${isBookmarked
                                                             ? 'bg-blue-600 text-white border-blue-600'
                                                             : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}
+                                                        ${!isBookmarked && (rating === 'Top Fit' || rating === 'Maybe') ? 'pulse-shortlist' : ''}
                                                     `}
                                                     title={isBookmarked ? "Remove from Shortlist" : "Add to Shortlist"}
                                                 >
@@ -1856,6 +1859,7 @@ function App() {
                                                         ${isBookmarked
                                                             ? 'bg-blue-600 text-white border-blue-600'
                                                             : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}
+                                                        ${!isBookmarked && (rating === 'Top Fit' || rating === 'Maybe') ? 'pulse-shortlist' : ''}
                                                     `}
                                                     title={isBookmarked ? "Remove from Shortlist" : "Add to Shortlist"}
                                                 >
@@ -2067,6 +2071,7 @@ function App() {
                                                         ${isBookmarked
                                                             ? 'bg-blue-600 text-white border-blue-600'
                                                             : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}
+                                                        ${!isBookmarked && (rating === 'Top Fit' || rating === 'Maybe') ? 'pulse-shortlist' : ''}
                                                     `}
                                                     title={isBookmarked ? "Remove from Shortlist" : "Add to Shortlist"}
                                                 >
