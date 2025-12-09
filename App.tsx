@@ -7,6 +7,7 @@ import { Histogram } from './components/Charts';
 import { candidatesService } from './services/candidatesService';
 import { employersService } from './services/employersService';
 import { matchResultsService } from './services/matchResultsService';
+import { candidateEvaluationService } from './services/candidateEvaluationService';
 
 function App() {
   // State
@@ -121,6 +122,24 @@ function App() {
           setPaymentIds(new Set());
           setCandidateRatings({});
           setShortlistFilterRatings(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']));
+
+          // Load evaluations from database
+          const evaluations = await candidateEvaluationService.getEvaluationsByJobId(currentJob.job_id);
+          const ratings: Record<number, string> = {};
+          const shortlisted = new Set<number>();
+
+          Object.entries(evaluations).forEach(([candidateId, evaluation]) => {
+            const cid = parseInt(candidateId);
+            if (evaluation.rating) {
+              ratings[cid] = evaluation.rating;
+            }
+            if (evaluation.isShortlisted) {
+              shortlisted.add(cid);
+            }
+          });
+
+          setCandidateRatings(ratings);
+          setCheckoutIds(shortlisted);
         } catch (error) {
           console.error('Error processing match results:', error);
           // Fallback to calculating fresh results on error
@@ -219,6 +238,8 @@ function App() {
   // Handler: Toggle Shortlist (Bookmark)
   const toggleShortlist = (id: number) => {
       const next = new Set(checkoutIds);
+      const isShortlisted = !next.has(id);
+
       if (next.has(id)) {
           next.delete(id);
           // Also remove from payment if removed from shortlist
@@ -231,6 +252,12 @@ function App() {
           next.add(id);
       }
       setCheckoutIds(next);
+
+      // Save to database
+      if (currentJob) {
+          const rating = candidateRatings[id] || null;
+          candidateEvaluationService.saveEvaluation(currentJob.job_id, id, rating, isShortlisted);
+      }
   };
 
   // Handler: Toggle Payment Selection
@@ -239,6 +266,17 @@ function App() {
       if (next.has(id)) next.delete(id);
       else next.add(id);
       setPaymentIds(next);
+  };
+
+  // Handler: Update Candidate Rating
+  const updateCandidateRating = (candidateId: number, rating: string) => {
+      setCandidateRatings(prev => ({...prev, [candidateId]: rating}));
+
+      // Save to database
+      if (currentJob) {
+          const isShortlisted = checkoutIds.has(candidateId);
+          candidateEvaluationService.saveEvaluation(currentJob.job_id, candidateId, rating, isShortlisted);
+      }
   };
 
   // Scroll to Chart
@@ -1180,7 +1218,7 @@ function App() {
                                                 <div className="relative">
                                                     <select
                                                         value={rating}
-                                                        onChange={(e) => setCandidateRatings(prev => ({...prev, [res.candidate.candidate_id]: e.target.value}))}
+                                                        onChange={(e) => updateCandidateRating(res.candidate.candidate_id, e.target.value)}
                                                         className={`
                                                             appearance-none pl-3 pr-8 py-2 rounded-lg border font-bold text-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm
                                                             ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700 hover:border-green-300' : 
@@ -1406,7 +1444,7 @@ function App() {
                                                 <div className="relative">
                                                     <select
                                                         value={rating}
-                                                        onChange={(e) => setCandidateRatings(prev => ({...prev, [res.candidate.candidate_id]: e.target.value}))}
+                                                        onChange={(e) => updateCandidateRating(res.candidate.candidate_id, e.target.value)}
                                                         className={`
                                                             appearance-none pl-3 pr-8 py-2 rounded-lg border font-bold text-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm
                                                             ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700 hover:border-green-300' :
@@ -1619,7 +1657,7 @@ function App() {
                                                 <div className="relative">
                                                     <select
                                                         value={rating}
-                                                        onChange={(e) => setCandidateRatings(prev => ({...prev, [res.candidate.candidate_id]: e.target.value}))}
+                                                        onChange={(e) => updateCandidateRating(res.candidate.candidate_id, e.target.value)}
                                                         className={`
                                                             appearance-none pl-3 pr-8 py-2 rounded-lg border font-bold text-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm
                                                             ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700 hover:border-green-300' :
@@ -1832,7 +1870,7 @@ function App() {
                                                 <div className="relative">
                                                     <select
                                                         value={rating}
-                                                        onChange={(e) => setCandidateRatings(prev => ({...prev, [res.candidate.candidate_id]: e.target.value}))}
+                                                        onChange={(e) => updateCandidateRating(res.candidate.candidate_id, e.target.value)}
                                                         className={`
                                                             appearance-none pl-3 pr-8 py-2 rounded-lg border font-bold text-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm
                                                             ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700 hover:border-green-300' :
@@ -2045,7 +2083,7 @@ function App() {
                                                 <div className="relative">
                                                     <select
                                                         value={rating}
-                                                        onChange={(e) => setCandidateRatings(prev => ({...prev, [res.candidate.candidate_id]: e.target.value}))}
+                                                        onChange={(e) => updateCandidateRating(res.candidate.candidate_id, e.target.value)}
                                                         className={`
                                                             appearance-none pl-3 pr-8 py-2 rounded-lg border font-bold text-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm
                                                             ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700 hover:border-green-300' :
