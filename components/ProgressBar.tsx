@@ -82,7 +82,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView }) => {
                   </div>
 
                   {/* Label */}
-                  <div className="mt-3 text-center w-full">
+                  <div className="mt-6 text-center w-full relative z-20">
                     <div
                       className={`
                         text-[11px] sm:text-xs font-bold transition-all duration-300 leading-tight

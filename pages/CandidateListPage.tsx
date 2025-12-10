@@ -492,7 +492,7 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                       className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg rounded-full flex items-center gap-2 font-bold shadow-xl transition-all hover:scale-105 pointer-events-auto"
                   >
                       <Bookmark className="w-5 h-5 fill-current" />
-                      Proceed to Final Selection ({checkoutIds.size})
+                      Proceed to purchase candidates ({checkoutIds.size})
                   </Button>
                 </div>
               )}
@@ -534,7 +534,7 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                       className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg rounded-full flex items-center gap-2 font-bold shadow-xl transition-all hover:scale-105 pointer-events-auto"
                   >
                       <Bookmark className="w-5 h-5" />
-                      Proceed to purchase candidates
+                      Proceed to shortlist candidates
                   </Button>
                 </div>
               )}
