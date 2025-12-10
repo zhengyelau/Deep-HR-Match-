@@ -2,16 +2,17 @@ import React from 'react';
 import { Check, Eye, Star, Bookmark, ShoppingCart, FileCheck } from 'lucide-react';
 
 interface ProgressBarProps {
-  currentView: 'distribution' | 'rating' | 'shortlisting' | 'checkout' | 'purchased';
+  currentView: 'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted';
+  onStepClick?: (stepId: 'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted') => void;
 }
 
-export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView }) => {
+export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView, onStepClick }) => {
   const steps = [
     { id: 'distribution', label: 'Distribution', description: 'View distribution of candidates', icon: Eye },
     { id: 'rating', label: 'Rate', description: 'Rate candidates by fit', icon: Star },
-    { id: 'shortlisting', label: 'Shortlist', description: 'Shortlist top candidates', icon: Bookmark },
     { id: 'checkout', label: 'Purchase', description: 'Purchase candidate CVs', icon: ShoppingCart },
     { id: 'purchased', label: 'Review', description: 'Review purchased CVs', icon: FileCheck },
+    { id: 'shortlisted', label: 'Shortlisted', description: 'View shortlisted candidates', icon: Bookmark },
   ];
 
   const currentIndex = steps.findIndex(step => step.id === currentView);
@@ -49,7 +50,12 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView }) => {
               const StepIcon = step.icon;
 
               return (
-                <div key={step.id} className="flex flex-col items-center w-[64px] sm:w-[80px]" style={{ flex: '0 0 auto' }}>
+                <div
+                  key={step.id}
+                  className={`flex flex-col items-center w-[64px] sm:w-[80px] ${isCompleted && onStepClick ? 'cursor-pointer' : ''}`}
+                  style={{ flex: '0 0 auto' }}
+                  onClick={() => isCompleted && onStepClick && onStepClick(step.id)}
+                >
                   {/* Circle with icon */}
                   <div className="relative">
                     {/* Glow effect for current step */}
@@ -61,7 +67,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView }) => {
                       className={`
                         relative w-11 h-11 sm:w-[46px] sm:h-[46px] rounded-full flex items-center justify-center
                         transition-all duration-300 border-[3px] z-20
-                        ${isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600 border-green-400 shadow-lg shadow-green-200' : ''}
+                        ${isCompleted ? `bg-gradient-to-br from-green-500 to-green-600 border-green-400 shadow-lg shadow-green-200 ${onStepClick ? 'hover:scale-110 hover:shadow-xl hover:shadow-green-300' : ''}` : ''}
                         ${isCurrent ? 'bg-gradient-to-br from-blue-500 to-blue-600 border-blue-400 shadow-xl shadow-blue-200 scale-110' : ''}
                         ${isUpcoming ? 'bg-white border-slate-300 shadow-sm' : ''}
                       `}

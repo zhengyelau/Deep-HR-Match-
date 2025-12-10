@@ -5,11 +5,9 @@ import { MatchResult } from '../types';
 interface CandidateCardProps {
   result: MatchResult;
   rating: string;
-  isBookmarked: boolean;
   isPaymentSelected: boolean;
-  viewMode: 'rating' | 'shortlisting' | 'checkout';
+  viewMode: 'rating' | 'checkout';
   onRate: (id: number, rating: string) => void;
-  onToggleShortlist: (id: number) => void;
   onTogglePayment: (id: number) => void;
 }
 
@@ -42,17 +40,14 @@ const QuestionItem = ({ question, answer }: { question: string, answer: string }
 export const CandidateCard: React.FC<CandidateCardProps> = ({
   result,
   rating,
-  isBookmarked,
   isPaymentSelected,
   viewMode,
   onRate,
-  onToggleShortlist,
   onTogglePayment
 }) => {
   const { candidate } = result;
   const q = candidate.questionnaire;
   const isRatingView = viewMode === 'rating';
-  const isShortlistingView = viewMode === 'shortlisting';
   const isCheckoutView = viewMode === 'checkout';
 
   const [expandBasicInfo, setExpandBasicInfo] = useState(false);
@@ -127,8 +122,8 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
                     </div>
                 )}
 
-                {/* Rating Badge - Display only in Shortlisting and Checkout Views */}
-                {(isShortlistingView || isCheckoutView) && (
+                {/* Rating Badge - Display only in Checkout View */}
+                {isCheckoutView && (
                     <div className={`
                         px-4 py-2 rounded-lg border font-bold text-sm
                         ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700' :
@@ -137,31 +132,6 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
                             'bg-slate-50 border-slate-200 text-slate-500'}
                     `}>
                         {rating || 'Unrated'}
-                    </div>
-                )}
-
-                {/* Shortlist Button - Only in Shortlisting View */}
-                {isShortlistingView && (
-                    <button
-                        onClick={() => onToggleShortlist(candidate.candidate_id)}
-                        className={`
-                            flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
-                            ${isBookmarked
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}
-                        `}
-                        title={isBookmarked ? "Remove from Shortlist" : "Add to Shortlist"}
-                    >
-                        <Bookmark size={18} className={isBookmarked ? 'fill-current' : ''} />
-                        <span className="font-bold">{isBookmarked ? 'Shortlisted' : 'Shortlist'}</span>
-                    </button>
-                )}
-
-                {/* Shortlist Badge - Only in Checkout View (Display only) */}
-                {isCheckoutView && (
-                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                        <Bookmark size={18} className="text-blue-600 fill-current" />
-                        <span className="text-sm font-bold text-blue-700">Shortlisted</span>
                     </div>
                 )}
 

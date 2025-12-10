@@ -1,127 +1,94 @@
 import { supabase } from '../lib/supabase';
-import { MatchResult, MatchDetails, MatchResultRow } from '../types';
+import { Employer } from '../types';
 
-export const matchResultsService = {
-  async saveMatchResult(jobId: number, matchResult: MatchResult): Promise<string | null> {
+export const employersService = {
+  async saveEmployer(employer: Employer): Promise<Employer | null> {
     const { data, error } = await supabase
-      .from('match_results')
+      .from('employer_job_descriptions')
       .upsert({
-        job_id: jobId,
-        candidate_id: matchResult.candidate.candidate_id,
-        rank: matchResult.rank,
-        score: matchResult.score,
-        percentage: matchResult.percentage,
-        is_eliminated: matchResult.isEliminated,
-        elimination_reasons: matchResult.eliminationReasons,
-      }, { onConflict: 'job_id,candidate_id' })
+        job_id: employer.job_id,
+        job_title: employer.job_title,
+        employer_name: employer.employer_name,
+        logo_url: employer.logo_url,
+        elimination_criteria: employer.elimination_criteria,
+        required_matching_criteria: employer.required_matching_criteria,
+      }, { onConflict: 'job_id' })
       .select()
       .maybeSingle();
 
     if (error) {
-      console.error('Error saving match result:', error);
+      console.error('Error saving employer:', error);
+      return null;
+    }
+
+    return data || null;
+  },
+
+  async saveEmployers(employers: Employer[]): Promise<boolean> {
+    try {
+      for (const employer of employers) {
+        await this.saveEmployer(employer);
+      }
+      return true;
+    } catch (error) {
+      console.error('Error saving employers:', error);
+      return false;
+    }
+  },
+
+  async getEmployers(): Promise<Employer[]> {
+    const { data, error } = await supabase
+      .from('employer_job_descriptions')
+      .select('*')
+      .order('job_id', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching employers:', error);
+      return [];
+    }
+
+    return (data || []).map(row => ({
+      job_id: row.job_id,
+      job_title: row.job_title,
+      employer_name: row.employer_name,
+      logo_url: row.logo_url,
+      elimination_criteria: row.elimination_criteria || {},
+      required_matching_criteria: row.required_matching_criteria || {},
+    }));
+  },
+
+  async getEmployerByJobId(jobId: number): Promise<Employer | null> {
+    const { data, error } = await supabase
+      .from('employer_job_descriptions')
+      .select('*')
+      .eq('job_id', jobId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching employer:', error);
       return null;
     }
 
     if (!data) return null;
 
-    await this.saveMatchDetails(data.id, matchResult.details);
-
-    return data.id;
+    return {
+      job_id: data.job_id,
+      job_title: data.job_title,
+      employer_name: data.employer_name,
+      logo_url: data.logo_url,
+      elimination_criteria: data.elimination_criteria || {},
+      required_matching_criteria: data.required_matching_criteria || {},
+    };
   },
 
-  async saveMatchResults(jobId: number, matchResults: MatchResult[]): Promise<boolean> {
-    try {
-      for (const result of matchResults) {
-        await this.saveMatchResult(jobId, result);
-      }
-      return true;
-    } catch (error) {
-      console.error('Error saving match results:', error);
-      return false;
-    }
-  },
-
-  async saveMatchDetails(matchResultId: string, details: MatchDetails): Promise<boolean> {
-    try {
-      for (const breakdown of details.breakdown) {
-        const { error } = await supabase
-          .from('match_details')
-          .insert({
-            match_result_id: matchResultId,
-            category: breakdown.category,
-            score: breakdown.score,
-            past_current_matches: breakdown.pastCurrentMatches,
-            preferred_matches: breakdown.preferredMatches,
-          });
-
-        if (error) {
-          console.error('Error saving match detail:', error);
-          return false;
-        }
-      }
-      return true;
-    } catch (error) {
-      console.error('Error saving match details:', error);
-      return false;
-    }
-  },
-
-  async getMatchResultsByJobId(jobId: number): Promise<MatchResultRow[]> {
-    const { data, error } = await supabase
-      .from('match_results')
-      .select('*')
-      .eq('job_id', jobId)
-      .order('rank', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching match results:', error);
-      return [];
-    }
-
-    return data || [];
-  },
-
-  async getMatchDetailsByResultId(matchResultId: string): Promise<MatchDetails['breakdown']> {
-    const { data, error } = await supabase
-      .from('match_details')
-      .select('*')
-      .eq('match_result_id', matchResultId);
-
-    if (error) {
-      console.error('Error fetching match details:', error);
-      return [];
-    }
-
-    return (data || []).map(row => ({
-      category: row.category,
-      score: row.score,
-      pastCurrentMatches: row.past_current_matches || [],
-      preferredMatches: row.preferred_matches || [],
-    }));
-  },
-
-  async deleteMatchResultsByJobId(jobId: number): Promise<boolean> {
+  async deleteEmployers(): Promise<boolean> {
     const { error } = await supabase
-      .from('match_results')
-      .delete()
-      .eq('job_id', jobId);
-
-    if (error) {
-      console.error('Error deleting match results:', error);
-      return false;
-    }
-
-    return true;
-  },
-
-  async deleteAllMatchResults(): Promise<boolean> {
-    const { error } = await supabase
-      .from('match_results')
+      .from('employer_job_descriptions')
       .delete()
       .gte('job_id', 0);
 
     if (error) {
-      console.error('Error deleting all match results:', error);
+      console.error('Error deleting employers:', error);
       return false;
     }
 

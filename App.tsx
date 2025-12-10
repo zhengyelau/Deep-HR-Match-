@@ -13,6 +13,7 @@ import { UploadPage } from './pages/UploadPage';
 import { DistributionPage } from './pages/DistributionPage';
 import { CandidateListPage } from './pages/CandidateListPage';
 import { PurchasedCandidatesPage } from './pages/PurchasedCandidatesPage';
+import { ShortlistedCandidatesPage } from './pages/ShortlistedCandidatesPage';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ProgressBar } from './components/ProgressBar';
 import { purchasedCandidatesService } from './services/purchasedCandidatesService';
@@ -28,7 +29,7 @@ function App() {
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
 
   // View State
-  const [viewMode, setViewMode] = useState<'distribution' | 'rating' | 'shortlisting' | 'checkout' | 'purchased'>('distribution');
+  const [viewMode, setViewMode] = useState<'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted'>('distribution');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   // Selection & Rating State
@@ -243,10 +244,6 @@ function App() {
       }
   };
 
-  const handleProceedToShortlisting = () => {
-    setViewMode('shortlisting');
-  };
-
   const handleProceedToCheckout = () => {
     setViewMode('checkout');
   };
@@ -262,6 +259,14 @@ function App() {
       setViewMode('purchased');
       setPaymentIds(new Set());
     }
+  };
+
+  const handleViewShortlisted = () => {
+    setViewMode('shortlisted');
+  };
+
+  const handleProgressStepClick = (stepId: 'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted') => {
+    setViewMode(stepId);
   };
 
   // Suggestions Calculation
@@ -328,7 +333,7 @@ function App() {
       </header>
 
       {/* Progress Bar - Show on all pages except upload AND ensure data is not loading */}
-      {selectedJobId && !isProcessingMatches && <ProgressBar currentView={viewMode} />}
+      {selectedJobId && !isProcessingMatches && <ProgressBar currentView={viewMode} onStepClick={handleProgressStepClick} />}
 
       {/* Floating Selection Badge */}
       {selectedCount > 0 && viewMode === 'distribution' && (
@@ -369,33 +374,12 @@ function App() {
                    viewMode="rating"
                    matchResults={selectedMatches}
                    selectedCandidateIds={selectedCandidateIds}
-                   checkoutIds={checkoutIds}
                    paymentIds={paymentIds}
                    candidateRatings={candidateRatings}
                    suggestions={suggestions}
                    allRated={allRated}
                    onSetViewMode={setViewMode}
                    onUpdateRating={updateCandidateRating}
-                   onToggleShortlist={toggleShortlist}
-                   onTogglePayment={togglePayment}
-                   onRemoveFromView={handleRemoveFromView}
-                   onBatchSelect={handleBatchSelect}
-                   onProceedToNext={handleProceedToShortlisting}
-                   onOpenCheckout={() => setIsCheckoutOpen(true)}
-                />
-             ) : viewMode === 'shortlisting' ? (
-                <CandidateListPage
-                   viewMode="shortlisting"
-                   matchResults={selectedMatches}
-                   selectedCandidateIds={selectedCandidateIds}
-                   checkoutIds={checkoutIds}
-                   paymentIds={paymentIds}
-                   candidateRatings={candidateRatings}
-                   suggestions={suggestions}
-                   allRated={allRated}
-                   onSetViewMode={setViewMode}
-                   onUpdateRating={updateCandidateRating}
-                   onToggleShortlist={toggleShortlist}
                    onTogglePayment={togglePayment}
                    onRemoveFromView={handleRemoveFromView}
                    onBatchSelect={handleBatchSelect}
@@ -405,16 +389,14 @@ function App() {
              ) : viewMode === 'checkout' ? (
                 <CandidateListPage
                    viewMode="checkout"
-                   matchResults={matchResults.filter(r => checkoutIds.has(r.candidate.candidate_id))}
+                   matchResults={selectedMatches}
                    selectedCandidateIds={selectedCandidateIds}
-                   checkoutIds={checkoutIds}
                    paymentIds={paymentIds}
                    candidateRatings={candidateRatings}
                    suggestions={suggestions}
                    allRated={allRated}
                    onSetViewMode={setViewMode}
                    onUpdateRating={updateCandidateRating}
-                   onToggleShortlist={toggleShortlist}
                    onTogglePayment={togglePayment}
                    onRemoveFromView={handleRemoveFromView}
                    onBatchSelect={handleBatchSelect}
@@ -426,6 +408,13 @@ function App() {
                    jobId={currentJob.job_id}
                    employer={currentJob}
                    onBack={() => setViewMode('checkout')}
+                   onViewShortlisted={handleViewShortlisted}
+                />
+             ) : viewMode === 'shortlisted' && currentJob ? (
+                <ShortlistedCandidatesPage
+                   jobId={currentJob.job_id}
+                   employer={currentJob}
+                   onBack={() => setViewMode('purchased')}
                 />
              ) : null}
           </>

@@ -2,7 +2,7 @@ import React from 'react';
 import { Info } from 'lucide-react';
 
 interface InstructionBannerProps {
-  viewMode: 'distribution' | 'rating' | 'shortlisting' | 'checkout';
+  viewMode: 'distribution' | 'rating' | 'checkout';
 }
 
 export const InstructionBanner: React.FC<InstructionBannerProps> = ({ viewMode }) => {
@@ -52,38 +52,12 @@ export const InstructionBanner: React.FC<InstructionBannerProps> = ({ viewMode }
                     </li>
                     <li className="flex gap-2">
                         <span className="font-bold text-blue-700">3.</span>
-                        <span><span className="font-bold">Proceed:</span> Once all candidates are rated, click "Proceed to purchase candidates" at the bottom to move to the shortlisting phase.</span>
+                        <span><span className="font-bold">Proceed:</span> Once all candidates are rated, click "Proceed to purchase candidates" at the bottom to move to the purchase phase.</span>
                     </li>
                 </ol>
             </div>
         </div>
     );
-  }
-
-  if (viewMode === 'shortlisting') {
-      return (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3">
-            <div className="bg-blue-600 text-white rounded-full p-1.5 mt-0.5 shrink-0">
-                <span className="font-bold text-base px-1.5">!</span>
-            </div>
-            <div>
-                <ol className="space-y-1.5 text-blue-900/80 text-sm">
-                    <li className="flex gap-2">
-                        <span className="font-bold text-blue-700">1.</span>
-                        <span><span className="font-bold">Review Candidates:</span> Review all rated candidates and their detailed profiles.</span>
-                    </li>
-                    <li className="flex gap-2">
-                        <span className="font-bold text-blue-700">2.</span>
-                        <span><span className="font-bold">Shortlist Candidates:</span> Click the <span className="font-bold">Shortlist</span> button (Bookmark icon) on candidates you want to move forward with.</span>
-                    </li>
-                    <li className="flex gap-2">
-                        <span className="font-bold text-blue-700">3.</span>
-                        <span><span className="font-bold">Proceed:</span> Once you have shortlisted at least one candidate, click "Proceed to Final Selection" at the bottom.</span>
-                    </li>
-                </ol>
-            </div>
-        </div>
-      );
   }
 
   if (viewMode === 'checkout') {
@@ -96,7 +70,7 @@ export const InstructionBanner: React.FC<InstructionBannerProps> = ({ viewMode }
                 <ol className="space-y-1.5 text-blue-900/80 text-sm">
                     <li className="flex gap-2">
                         <span className="font-bold text-blue-700">1.</span>
-                        <span><span className="font-bold">Review Shortlisted Candidates:</span> All shortlisted candidates are grouped by their ratings (<span className="font-bold text-green-700">Top Fit</span>, <span className="font-bold text-orange-700">Maybe</span>, <span className="font-bold text-red-700">Not a Fit</span>, or <span className="font-bold">Unrated</span>).</span>
+                        <span><span className="font-bold">Review Rated Candidates:</span> All rated candidates are grouped by their ratings (<span className="font-bold text-green-700">Top Fit</span>, <span className="font-bold text-orange-700">Maybe</span>, <span className="font-bold text-red-700">Not a Fit</span>, or <span className="font-bold">Unrated</span>).</span>
                     </li>
                     <li className="flex gap-2">
                         <span className="font-bold text-blue-700">2.</span>
@@ -104,11 +78,11 @@ export const InstructionBanner: React.FC<InstructionBannerProps> = ({ viewMode }
                     </li>
                     <li className="flex gap-2">
                         <span className="font-bold text-blue-700">3.</span>
-                        <span><span className="font-bold">Select for Checkout:</span> Click the <span className="font-bold">Select</span> button on candidates you want to proceed with for final checkout.</span>
+                        <span><span className="font-bold">Select Candidates:</span> Click the <span className="font-bold">Select</span> button on candidates you want to purchase.</span>
                     </li>
                     <li className="flex gap-2">
                         <span className="font-bold text-blue-700">4.</span>
-                        <span><span className="font-bold">Complete:</span> Click "Proceed to Checkout" at the bottom to finalize your selection.</span>
+                        <span><span className="font-bold">Complete Purchase:</span> Click "Proceed to Checkout" at the bottom to purchase selected candidate CVs.</span>
                     </li>
                 </ol>
             </div>

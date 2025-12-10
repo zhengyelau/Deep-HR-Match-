@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
-import { Search, Filter, ChevronDown, ArrowLeft, Bookmark, ShoppingCart, Activity, Check, Info, X, Network, Zap, PlusCircle } from 'lucide-react';
+import { Search, ArrowLeft, ShoppingCart, Check, Info, X } from 'lucide-react';
 import { Button, Card, Badge } from '../components/UI';
 import { InstructionBanner } from '../components/InstructionBanner';
 import { CandidateCard } from '../components/CandidateCard';
 import { MatchResult } from '../types';
 
 interface CandidateListPageProps {
-  viewMode: 'rating' | 'shortlisting' | 'checkout';
+  viewMode: 'rating' | 'checkout';
   matchResults: MatchResult[];
   selectedCandidateIds: Set<number>;
-  checkoutIds: Set<number>;
   paymentIds: Set<number>;
   candidateRatings: Record<number, string>;
   suggestions: {
@@ -17,9 +16,8 @@ interface CandidateListPageProps {
       functions: [string, { ids: number[], names: string[], scores: number[] }][];
   };
   allRated: boolean;
-  onSetViewMode: (mode: 'distribution' | 'rating' | 'shortlisting' | 'checkout' | 'purchased') => void;
+  onSetViewMode: (mode: 'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted') => void;
   onUpdateRating: (id: number, rating: string) => void;
-  onToggleShortlist: (id: number) => void;
   onTogglePayment: (id: number) => void;
   onRemoveFromView: (id: number) => void;
   onBatchSelect: (ids: number[]) => void;
@@ -31,14 +29,12 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
   viewMode,
   matchResults,
   selectedCandidateIds,
-  checkoutIds,
   paymentIds,
   candidateRatings,
   suggestions,
   allRated,
   onSetViewMode,
   onUpdateRating,
-  onToggleShortlist,
   onTogglePayment,
   onRemoveFromView,
   onBatchSelect,
@@ -46,42 +42,25 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
   onOpenCheckout
 }) => {
   const isRatingView = viewMode === 'rating';
-  const isShortlistingView = viewMode === 'shortlisting';
   const isCheckoutView = viewMode === 'checkout';
 
   // Local filter state for Checkout view
-  const [checkoutFilterRatings, setCheckoutFilterRatings] = useState<Set<string>>(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']));
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'Top Fit' | 'Maybe' | 'Not a Fit'>('Top Fit');
 
-  // Local filter state for Shortlisting view
-  const [shortlistFilter, setShortlistFilter] = useState<'Top Fit' | 'Maybe' | 'Not a Fit'>('Top Fit');
+  // Calculate counts for each category
+  const topFitCount = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Top Fit').length;
+  const maybeCount = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Maybe').length;
+  const notFitCount = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Not a Fit').length;
 
   // Filter items logic
   let itemsToShow = matchResults;
 
   if (isCheckoutView) {
-      const isAllSelected = checkoutFilterRatings.size === 4;
-      if (!isAllSelected) {
-          itemsToShow = itemsToShow.filter(r => {
-              const rating = candidateRatings[r.candidate.candidate_id];
-              if (checkoutFilterRatings.has('Unrated') && !rating) return true;
-              if (rating && checkoutFilterRatings.has(rating)) return true;
-              return false;
-          });
-      }
-  }
-
-  if (isShortlistingView) {
       itemsToShow = itemsToShow.filter(r => {
           const rating = candidateRatings[r.candidate.candidate_id];
-          return rating === shortlistFilter;
+          return rating === activeFilter;
       });
   }
-
-  // Calculate counts for each rating category (for Shortlisting view)
-  const topFitCount = isShortlistingView ? matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Top Fit').length : 0;
-  const maybeCount = isShortlistingView ? matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Maybe').length : 0;
-  const notAFitCount = isShortlistingView ? matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Not a Fit').length : 0;
 
   // Helper to render sections in Checkout mode
   const renderSection = (title: string, icon: React.ReactNode, color: 'green' | 'orange' | 'rose' | 'slate', filterFn: (r: MatchResult) => boolean) => {
@@ -112,11 +91,9 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                <CandidateCard
                  result={res}
                  rating={candidateRatings[res.candidate.candidate_id] || ''}
-                 isBookmarked={checkoutIds.has(res.candidate.candidate_id)}
                  isPaymentSelected={paymentIds.has(res.candidate.candidate_id)}
                  viewMode={viewMode}
                  onRate={onUpdateRating}
-                 onToggleShortlist={onToggleShortlist}
                  onTogglePayment={onTogglePayment}
                />
              </div>
@@ -131,75 +108,10 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
       {/* 1. Header Row */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h2 className="text-2xl font-bold text-slate-900">
-            {isRatingView ? 'Indicate Candidates Fit' : isShortlistingView ? 'Shortlist Candidates' : 'Purchase Candidate CV'}
+            {isRatingView ? 'Indicate Candidates Fit' : 'Purchase Candidate CV'}
           </h2>
           <div className="flex items-center gap-3">
-              {isCheckoutView && (
-                  <div className="relative mr-2">
-                      <button
-                          onClick={() => setIsFilterOpen(!isFilterOpen)}
-                          className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium hover:border-slate-400 transition-colors shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      >
-                          <Filter size={16} className="text-slate-600" />
-                          <span className="text-slate-700">Filter</span>
-                          <ChevronDown size={14} className={`text-slate-400 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      {isFilterOpen && (
-                          <div className="absolute right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-4 z-50 min-w-[240px] animate-in fade-in slide-in-from-top-2">
-                              <div className="space-y-3">
-                                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                                      <span className="text-sm font-bold text-slate-700">Filter by Rating</span>
-                                      {checkoutFilterRatings.size < 4 && (
-                                          <button
-                                              onClick={() => setCheckoutFilterRatings(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']))}
-                                              className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-                                          >
-                                              Reset
-                                          </button>
-                                      )}
-                                  </div>
-
-                                  {['Top Fit', 'Maybe', 'Not a Fit', 'Unrated'].map((rating) => {
-                                      const isChecked = checkoutFilterRatings.has(rating);
-                                      return (
-                                          <label key={rating} className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-2 rounded transition-colors">
-                                              <input
-                                                  type="checkbox"
-                                                  checked={isChecked}
-                                                  onChange={(e) => {
-                                                      const newSet = new Set(checkoutFilterRatings);
-                                                      if (e.target.checked) {
-                                                          newSet.add(rating);
-                                                      } else {
-                                                          newSet.delete(rating);
-                                                      }
-                                                      setCheckoutFilterRatings(newSet);
-                                                  }}
-                                                  className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                                              />
-                                              <span className={`text-sm font-medium ${
-                                                  rating === 'Top Fit' ? 'text-green-700' :
-                                                  rating === 'Maybe' ? 'text-orange-700' :
-                                                  rating === 'Not a Fit' ? 'text-red-700' :
-                                                  'text-slate-700'
-                                              }`}>
-                                                  {rating}
-                                              </span>
-                                          </label>
-                                      );
-                                  })}
-                              </div>
-                          </div>
-                      )}
-                  </div>
-              )}
-              <span className="text-slate-500 text-sm hidden sm:inline">Viewing {itemsToShow.length} candidates</span>
               {isCheckoutView ? (
-                <Button variant="secondary" onClick={() => onSetViewMode('shortlisting')} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
-                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to Shortlisting
-                </Button>
-              ) : isShortlistingView ? (
                 <Button variant="secondary" onClick={() => onSetViewMode('rating')} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
                   <ArrowLeft className="w-4 h-4 mr-2" /> Back to Rating
                 </Button>
@@ -212,6 +124,65 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
       </div>
 
       <InstructionBanner viewMode={viewMode} />
+
+      {/* Filter Toggle Buttons - Only on Checkout View */}
+      {isCheckoutView && (
+        <div className="flex flex-wrap gap-4 mb-8">
+          <button
+            onClick={() => setActiveFilter('Top Fit')}
+            className={`flex items-center gap-3 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-md hover:shadow-lg ${
+              activeFilter === 'Top Fit'
+                ? 'bg-green-600 text-white scale-105'
+                : 'bg-white text-green-700 border-2 border-green-300 hover:border-green-400'
+            }`}
+          >
+            <span>Top Fit</span>
+            <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+              activeFilter === 'Top Fit'
+                ? 'bg-white text-green-600'
+                : 'bg-green-100 text-green-700'
+            }`}>
+              {topFitCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveFilter('Maybe')}
+            className={`flex items-center gap-3 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-md hover:shadow-lg ${
+              activeFilter === 'Maybe'
+                ? 'bg-orange-600 text-white scale-105'
+                : 'bg-white text-orange-700 border-2 border-orange-300 hover:border-orange-400'
+            }`}
+          >
+            <span>Maybe</span>
+            <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+              activeFilter === 'Maybe'
+                ? 'bg-white text-orange-600'
+                : 'bg-orange-100 text-orange-700'
+            }`}>
+              {maybeCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveFilter('Not a Fit')}
+            className={`flex items-center gap-3 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-md hover:shadow-lg ${
+              activeFilter === 'Not a Fit'
+                ? 'bg-red-600 text-white scale-105'
+                : 'bg-white text-red-700 border-2 border-red-300 hover:border-red-400'
+            }`}
+          >
+            <span>Not a Fit</span>
+            <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+              activeFilter === 'Not a Fit'
+                ? 'bg-white text-red-600'
+                : 'bg-red-100 text-red-700'
+            }`}>
+              {notFitCount}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Discover Similar Candidates - Only on Rating View */}
       {/* {isRatingView && (suggestions.domains.length > 0 || suggestions.functions.length > 0) && (
@@ -337,74 +308,6 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
       </div>
       )}
 
-      {/* Filter Buttons - Only on Shortlisting View */}
-      {isShortlistingView && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-8">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Filter by Rating</h3>
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => setShortlistFilter('Top Fit')}
-              className={`
-                flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-sm
-                ${shortlistFilter === 'Top Fit'
-                  ? 'bg-green-600 text-white border-2 border-green-600 shadow-md scale-105'
-                  : 'bg-white text-green-700 border-2 border-green-200 hover:border-green-300 hover:bg-green-50'}
-              `}
-            >
-              <Check size={18} />
-              Top Fit
-              <span className={`ml-2 px-2 py-0.5 rounded-full text-sm font-bold ${
-                shortlistFilter === 'Top Fit'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                {topFitCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setShortlistFilter('Maybe')}
-              className={`
-                flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-sm
-                ${shortlistFilter === 'Maybe'
-                  ? 'bg-orange-600 text-white border-2 border-orange-600 shadow-md scale-105'
-                  : 'bg-white text-orange-700 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-50'}
-              `}
-            >
-              <Info size={18} />
-              Maybe
-              <span className={`ml-2 px-2 py-0.5 rounded-full text-sm font-bold ${
-                shortlistFilter === 'Maybe'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-orange-100 text-orange-800'
-              }`}>
-                {maybeCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setShortlistFilter('Not a Fit')}
-              className={`
-                flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-sm
-                ${shortlistFilter === 'Not a Fit'
-                  ? 'bg-red-600 text-white border-2 border-red-600 shadow-md scale-105'
-                  : 'bg-white text-red-700 border-2 border-red-200 hover:border-red-300 hover:bg-red-50'}
-              `}
-            >
-              <X size={18} />
-              Not a Fit
-              <span className={`ml-2 px-2 py-0.5 rounded-full text-sm font-bold ${
-                shortlistFilter === 'Not a Fit'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-red-100 text-red-800'
-              }`}>
-                {notAFitCount}
-              </span>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Candidates List Area */}
       <div className="pb-24">
         {itemsToShow.length === 0 ? (
@@ -418,37 +321,24 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                       No candidates found
                   </h3>
                   <p className="text-slate-500 mb-8 max-w-md text-center">
-                      {isCheckoutView && checkoutFilterRatings.size < 4
-                          ? "No candidates match the selected filter criteria."
-                          : isCheckoutView
-                          ? "No candidates have been shortlisted yet. Go back to shortlist candidates first."
+                      {isCheckoutView
+                          ? `No candidates were rated as "${activeFilter}". Try selecting a different category above.`
                           : "There are no candidates to display in this view."}
                   </p>
                   <div className="flex gap-4">
-                      {isCheckoutView && checkoutFilterRatings.size < 4 ? (
-                          <Button variant="secondary" onClick={() => setCheckoutFilterRatings(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']))}>
-                              Clear Filters
-                          </Button>
-                      ) : isCheckoutView ? (
-                          <Button variant="secondary" onClick={() => onSetViewMode('shortlisting')}>
-                              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Shortlisting
-                          </Button>
-                      ) : (
-                          <Button variant="secondary" onClick={() => onSetViewMode('distribution')}>
-                              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
-                          </Button>
-                      )}
+                      <Button variant="secondary" onClick={() => onSetViewMode('rating')}>
+                          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Rating
+                      </Button>
                   </div>
               </div>
             </div>
           </Card>
         ) : isCheckoutView ? (
-          // Checkout View: Group by Rating (Only Shortlisted)
+          // Checkout View: Show filtered section based on activeFilter
           <div className="space-y-8">
-            {renderSection('Top Fit', <Check className="w-6 h-6" />, 'green', (r) => candidateRatings[r.candidate.candidate_id] === 'Top Fit')}
-            {renderSection('Maybe', <Info className="w-6 h-6" />, 'orange', (r) => candidateRatings[r.candidate.candidate_id] === 'Maybe')}
-            {renderSection('Not a Fit', <X className="w-6 h-6" />, 'rose', (r) => candidateRatings[r.candidate.candidate_id] === 'Not a Fit')}
-            {renderSection('Unrated', <Activity className="w-6 h-6" />, 'slate', (r) => !candidateRatings[r.candidate.candidate_id])}
+            {activeFilter === 'Top Fit' && renderSection('Top Fit', <Check className="w-6 h-6" />, 'green', (r) => candidateRatings[r.candidate.candidate_id] === 'Top Fit')}
+            {activeFilter === 'Maybe' && renderSection('Maybe', <Info className="w-6 h-6" />, 'orange', (r) => candidateRatings[r.candidate.candidate_id] === 'Maybe')}
+            {activeFilter === 'Not a Fit' && renderSection('Not a Fit', <X className="w-6 h-6" />, 'rose', (r) => candidateRatings[r.candidate.candidate_id] === 'Not a Fit')}
 
             {paymentIds.size > 0 && (
                 <div className="mt-8 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
@@ -463,48 +353,6 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                 </div>
             )}
           </div>
-        ) : isShortlistingView ? (
-          // Shortlisting View: Single List (No checkout buttons)
-          <Card className="overflow-hidden border border-slate-200 shadow-sm">
-            <div className="p-6 md:p-8">
-              <div className="space-y-12">
-                  {itemsToShow.map((res, index) => (
-                      <div key={res.candidate.candidate_id} className={index > 0 ? "pt-12 border-t border-slate-200" : ""}>
-                          <CandidateCard
-                            result={res}
-                            rating={candidateRatings[res.candidate.candidate_id] || ''}
-                            isBookmarked={checkoutIds.has(res.candidate.candidate_id)}
-                            isPaymentSelected={paymentIds.has(res.candidate.candidate_id)}
-                            viewMode={viewMode}
-                            onRate={onUpdateRating}
-                            onToggleShortlist={onToggleShortlist}
-                            onTogglePayment={onTogglePayment}
-                          />
-                      </div>
-                  ))}
-              </div>
-
-              {checkoutIds.size > 0 && (
-                <div className="mt-8 pt-8 border-t border-slate-100 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
-                    <Button
-                      size="lg"
-                      onClick={onProceedToNext}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg rounded-full flex items-center gap-2 font-bold shadow-xl transition-all hover:scale-105 pointer-events-auto"
-                  >
-                      <Bookmark className="w-5 h-5 fill-current" />
-                      Proceed to purchase candidates ({checkoutIds.size})
-                  </Button>
-                </div>
-              )}
-
-              {checkoutIds.size === 0 && (
-                <div className="mt-8 pt-8 border-t border-slate-100 bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                    <p className="text-yellow-800 font-semibold text-lg mb-2">Please shortlist at least one candidate</p>
-                    <p className="text-yellow-700 text-sm">Click the Shortlist button on candidates you want to proceed with.</p>
-                </div>
-              )}
-            </div>
-          </Card>
         ) : (
           // Rating View: Single List
           <Card className="overflow-hidden border border-slate-200 shadow-sm">
@@ -515,11 +363,9 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                           <CandidateCard
                             result={res}
                             rating={candidateRatings[res.candidate.candidate_id] || ''}
-                            isBookmarked={checkoutIds.has(res.candidate.candidate_id)}
                             isPaymentSelected={paymentIds.has(res.candidate.candidate_id)}
                             viewMode={viewMode}
                             onRate={onUpdateRating}
-                            onToggleShortlist={onToggleShortlist}
                             onTogglePayment={onTogglePayment}
                           />
                       </div>
@@ -533,8 +379,8 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                       onClick={onProceedToNext}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg rounded-full flex items-center gap-2 font-bold shadow-xl transition-all hover:scale-105 pointer-events-auto"
                   >
-                      <Bookmark className="w-5 h-5" />
-                      Proceed to shortlist candidates
+                      <ShoppingCart className="w-5 h-5" />
+                      Proceed to purchase candidates
                   </Button>
                 </div>
               )}
@@ -542,7 +388,7 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
               {itemsToShow.length > 0 && !allRated && (
                 <div className="mt-8 pt-8 border-t border-slate-100 bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
                     <p className="text-yellow-800 font-semibold text-lg mb-2">Please rate all candidates before proceeding</p>
-                    <p className="text-yellow-700 text-sm">You need to assign a rating to each candidate to continue to shortlisting.</p>
+                    <p className="text-yellow-700 text-sm">You need to assign a rating to each candidate to continue to purchase.</p>
                 </div>
               )}
             </div>

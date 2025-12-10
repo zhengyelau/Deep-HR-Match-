@@ -1,35 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Download, UserCheck, ArrowLeft, CheckCircle2, Circle, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Users, Mail, Phone, Download, CheckCircle2 } from 'lucide-react';
 import { Button, Card, Badge } from '../components/UI';
 import { Candidate, Employer } from '../types';
 import { purchasedCandidatesService, PurchasedCandidate } from '../services/purchasedCandidatesService';
 import { candidatesService } from '../services/candidatesService';
 
-interface PurchasedCandidatesPageProps {
+interface ShortlistedCandidatesPageProps {
   jobId: number;
   employer: Employer;
   onBack: () => void;
-  onViewShortlisted: () => void;
 }
 
-export const PurchasedCandidatesPage: React.FC<PurchasedCandidatesPageProps> = ({
+export const ShortlistedCandidatesPage: React.FC<ShortlistedCandidatesPageProps> = ({
   jobId,
   employer,
-  onBack,
-  onViewShortlisted
+  onBack
 }) => {
-  const [purchasedCandidates, setPurchasedCandidates] = useState<PurchasedCandidate[]>([]);
+  const [shortlistedCandidates, setShortlistedCandidates] = useState<PurchasedCandidate[]>([]);
   const [candidatesData, setCandidatesData] = useState<Record<number, Candidate>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [downloadingIds, setDownloadingIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    const loadPurchasedCandidates = async () => {
+    const loadShortlistedCandidates = async () => {
       setIsLoading(true);
       const purchased = await purchasedCandidatesService.getPurchasedCandidatesByJobId(jobId);
-      setPurchasedCandidates(purchased);
+      const shortlisted = purchased.filter(p => p.is_shortlisted_for_interview);
+      setShortlistedCandidates(shortlisted);
 
-      const candidateIds = purchased.map(p => p.candidate_id);
+      const candidateIds = shortlisted.map(p => p.candidate_id);
       const candidatesMap: Record<number, Candidate> = {};
 
       for (const id of candidateIds) {
@@ -43,19 +42,8 @@ export const PurchasedCandidatesPage: React.FC<PurchasedCandidatesPageProps> = (
       setIsLoading(false);
     };
 
-    loadPurchasedCandidates();
+    loadShortlistedCandidates();
   }, [jobId]);
-
-  const handleToggleInterviewShortlist = async (purchasedId: string, currentStatus: boolean) => {
-    const success = await purchasedCandidatesService.toggleInterviewShortlist(purchasedId, !currentStatus);
-    if (success) {
-      setPurchasedCandidates(prev =>
-        prev.map(pc =>
-          pc.id === purchasedId ? { ...pc, is_shortlisted_for_interview: !currentStatus } : pc
-        )
-      );
-    }
-  };
 
   const handleDownloadCV = async (candidate: Candidate) => {
     setDownloadingIds(prev => new Set(prev).add(candidate.candidate_id));
@@ -139,15 +127,13 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
     `.trim();
   };
 
-  const shortlistedCount = purchasedCandidates.filter(pc => pc.is_shortlisted_for_interview).length;
-
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 font-medium">Loading purchased candidates...</p>
+            <p className="text-slate-600 font-medium">Loading shortlisted candidates...</p>
           </div>
         </div>
       </div>
@@ -159,55 +145,40 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Purchased Candidates</h1>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Shortlisted Candidates for Interview</h1>
             <p className="text-slate-600">
               {employer.job_title} - {employer.employer_name}
             </p>
           </div>
           <Button variant="secondary" onClick={onBack} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Selection
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Purchased
           </Button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Purchased</h4>
-            <p className="text-3xl font-bold text-blue-700">{purchasedCandidates.length}</p>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Shortlisted for Interview</h4>
-            <p className="text-3xl font-bold text-green-700">{shortlistedCount}</p>
-          </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pending Review</h4>
-            <p className="text-3xl font-bold text-amber-700">{purchasedCandidates.length - shortlistedCount}</p>
-          </div>
         </div>
       </div>
 
-      {purchasedCandidates.length === 0 ? (
+      {shortlistedCandidates.length === 0 ? (
         <Card className="p-12 text-center">
           <div className="bg-slate-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <UserCheck size={40} className="text-slate-400" />
+            <CheckCircle2 size={40} className="text-slate-400" />
           </div>
-          <h3 className="text-xl font-bold text-slate-900 mb-2">No Purchased Candidates Yet</h3>
-          <p className="text-slate-500 mb-6">You have not purchased any candidates for this job yet.</p>
-          <Button onClick={onBack}>Go to Candidate Selection</Button>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">No Shortlisted Candidates Yet</h3>
+          <p className="text-slate-500 mb-6">You have not shortlisted any candidates for interview yet.</p>
+          <Button onClick={onBack}>Go Back to Purchased Candidates</Button>
         </Card>
       ) : (
         <div className="space-y-6">
-          {purchasedCandidates.map(purchased => {
+          {shortlistedCandidates.map(purchased => {
             const candidate = candidatesData[purchased.candidate_id];
             if (!candidate) return null;
 
             const isDownloading = downloadingIds.has(candidate.candidate_id);
 
             return (
-              <Card key={purchased.id} className="overflow-hidden border-2 border-slate-200 hover:border-blue-200 transition-all">
+              <Card key={purchased.id} className="overflow-hidden border-2 border-green-200 hover:border-green-300 transition-all shadow-md">
                 <div className="p-6">
                   <div className="flex flex-col lg:flex-row gap-6">
                     <div className="flex items-start gap-4 flex-1">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center text-xl font-bold shadow-md overflow-hidden shrink-0">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 text-white flex items-center justify-center text-xl font-bold shadow-md overflow-hidden shrink-0">
                         {candidate.profile_picture_url && candidate.profile_picture_url.length > 5 ? (
                           <img src={candidate.profile_picture_url} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
                         ) : null}
@@ -225,12 +196,10 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
                           <Badge color="blue">
                             {candidate.past_current_role?.split(',')[0] || 'Candidate'}
                           </Badge>
-                          {purchased.is_shortlisted_for_interview && (
-                            <Badge color="green" className="flex items-center gap-1">
-                              <CheckCircle2 size={12} />
-                              Shortlisted for Interview
-                            </Badge>
-                          )}
+                          <Badge color="green" className="flex items-center gap-1">
+                            <CheckCircle2 size={12} />
+                            Shortlisted for Interview
+                          </Badge>
                           <Badge color="purple">
                             Purchased {new Date(purchased.purchase_date).toLocaleDateString()}
                           </Badge>
@@ -274,32 +243,10 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
                       <Button
                         onClick={() => handleDownloadCV(candidate)}
                         isLoading={isDownloading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 flex items-center gap-2 whitespace-nowrap"
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2 whitespace-nowrap"
                       >
                         <Download size={16} />
                         Download CV
-                      </Button>
-
-                      <Button
-                        onClick={() => handleToggleInterviewShortlist(purchased.id, purchased.is_shortlisted_for_interview)}
-                        variant={purchased.is_shortlisted_for_interview ? "success" : "secondary"}
-                        className={`px-4 py-2 flex items-center gap-2 whitespace-nowrap ${
-                          purchased.is_shortlisted_for_interview
-                            ? 'bg-green-600 hover:bg-green-700 text-white'
-                            : 'border-slate-300 hover:border-green-300 hover:text-green-600'
-                        }`}
-                      >
-                        {purchased.is_shortlisted_for_interview ? (
-                          <>
-                            <CheckCircle2 size={16} />
-                            Shortlisted
-                          </>
-                        ) : (
-                          <>
-                            <Circle size={16} />
-                            Shortlist for Interview
-                          </>
-                        )}
                       </Button>
                     </div>
                   </div>
@@ -307,19 +254,6 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
               </Card>
             );
           })}
-
-          {shortlistedCount > 0 && (
-            <div className="mt-8 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
-              <Button
-                size="lg"
-                onClick={onViewShortlisted}
-                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg rounded-full flex items-center gap-2 font-bold shadow-xl transition-all hover:scale-105 pointer-events-auto"
-              >
-                <CheckCircle2 className="w-5 h-5" />
-                View Shortlisted Candidates ({shortlistedCount})
-              </Button>
-            </div>
-          )}
         </div>
       )}
     </div>
