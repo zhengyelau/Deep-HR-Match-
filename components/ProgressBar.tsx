@@ -15,25 +15,29 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView }) => {
   ];
 
   const currentIndex = steps.findIndex(step => step.id === currentView);
+  const progressPercentage = Math.min(100, Math.max(0, (currentIndex / (steps.length - 1)) * 100));
 
   return (
     <div className="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <div className="relative">
           {/* Progress Line Container */}
-          <div className="absolute top-[22px] left-0 right-0 flex items-center px-[30px] sm:px-[35px]" style={{ zIndex: 0 }}>
-            {/* Background line */}
-            <div className="flex-1 h-[3px] bg-slate-200 rounded-full"></div>
-
-            {/* Active progress line */}
-            {currentIndex >= 0 && (
-              <div
-                className="absolute left-[30px] sm:left-[35px] h-[3px] bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-700 ease-in-out"
-                style={{
-                  width: `calc(${(currentIndex / (steps.length - 1)) * 100}% - 30px)`,
-                }}
-              ></div>
-            )}
+          {/* 
+              Vertical Alignment:
+              Mobile Circle = 44px (h-11). Center Y = 22px. Line H = 3px. Top = 22 - 1.5 = 20.5px.
+              Desktop Circle = 46px. Center Y = 23px. Line H = 3px. Top = 23 - 1.5 = 21.5px.
+              
+              Horizontal Alignment:
+              Mobile Item Width = 64px. Center X = 32px. Padding = 32px.
+              Desktop Item Width = 80px. Center X = 40px. Padding = 40px.
+          */}
+          <div className="absolute top-[20.5px] sm:top-[21.5px] left-0 right-0 px-[32px] sm:px-[40px]" style={{ zIndex: 0 }}>
+             <div className="relative w-full h-[3px] bg-slate-200 rounded-full">
+                <div 
+                   className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-700 ease-in-out"
+                   style={{ width: `${progressPercentage}%` }}
+                ></div>
+             </div>
           </div>
 
           {/* Steps */}
@@ -45,7 +49,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView }) => {
               const StepIcon = step.icon;
 
               return (
-                <div key={step.id} className="flex flex-col items-center" style={{ flex: '0 0 auto' }}>
+                <div key={step.id} className="flex flex-col items-center w-[64px] sm:w-[80px]" style={{ flex: '0 0 auto' }}>
                   {/* Circle with icon */}
                   <div className="relative">
                     {/* Glow effect for current step */}
@@ -56,7 +60,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView }) => {
                     <div
                       className={`
                         relative w-11 h-11 sm:w-[46px] sm:h-[46px] rounded-full flex items-center justify-center
-                        transition-all duration-300 border-[3px]
+                        transition-all duration-300 border-[3px] z-20
                         ${isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600 border-green-400 shadow-lg shadow-green-200' : ''}
                         ${isCurrent ? 'bg-gradient-to-br from-blue-500 to-blue-600 border-blue-400 shadow-xl shadow-blue-200 scale-110' : ''}
                         ${isUpcoming ? 'bg-white border-slate-300 shadow-sm' : ''}
@@ -78,7 +82,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView }) => {
                   </div>
 
                   {/* Label */}
-                  <div className="mt-3 text-center min-w-[65px] sm:min-w-[75px]">
+                  <div className="mt-3 text-center w-full">
                     <div
                       className={`
                         text-[11px] sm:text-xs font-bold transition-all duration-300 leading-tight
