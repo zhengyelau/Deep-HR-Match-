@@ -1,0 +1,111 @@
+import React from 'react';
+import { Check, Eye, Star, Bookmark, ShoppingCart, FileCheck } from 'lucide-react';
+
+interface ProgressBarProps {
+  currentView: 'distribution' | 'rating' | 'shortlisting' | 'checkout' | 'purchased';
+}
+
+export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView }) => {
+  const steps = [
+    { id: 'distribution', label: 'Distribution', description: 'View distribution of candidates', icon: Eye },
+    { id: 'rating', label: 'Rate', description: 'Rate candidates by fit', icon: Star },
+    { id: 'shortlisting', label: 'Shortlist', description: 'Shortlist top candidates', icon: Bookmark },
+    { id: 'checkout', label: 'Purchase', description: 'Purchase candidate CVs', icon: ShoppingCart },
+    { id: 'purchased', label: 'Review', description: 'Review purchased CVs', icon: FileCheck },
+  ];
+
+  const currentIndex = steps.findIndex(step => step.id === currentView);
+
+  return (
+    <div className="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        <div className="relative">
+          {/* Progress Line Container */}
+          <div className="absolute top-[22px] left-0 right-0 flex items-center px-[30px] sm:px-[35px]" style={{ zIndex: 0 }}>
+            {/* Background line */}
+            <div className="flex-1 h-[3px] bg-slate-200 rounded-full"></div>
+
+            {/* Active progress line */}
+            {currentIndex >= 0 && (
+              <div
+                className="absolute left-[30px] sm:left-[35px] h-[3px] bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-700 ease-in-out"
+                style={{
+                  width: `calc(${(currentIndex / (steps.length - 1)) * 100}% - 30px)`,
+                }}
+              ></div>
+            )}
+          </div>
+
+          {/* Steps */}
+          <div className="relative z-10 flex justify-between">
+            {steps.map((step, index) => {
+              const isCompleted = index < currentIndex;
+              const isCurrent = index === currentIndex;
+              const isUpcoming = index > currentIndex;
+              const StepIcon = step.icon;
+
+              return (
+                <div key={step.id} className="flex flex-col items-center" style={{ flex: '0 0 auto' }}>
+                  {/* Circle with icon */}
+                  <div className="relative">
+                    {/* Glow effect for current step */}
+                    {isCurrent && (
+                      <div className="absolute inset-0 bg-blue-400 rounded-full blur-md opacity-40 animate-pulse"></div>
+                    )}
+
+                    <div
+                      className={`
+                        relative w-11 h-11 sm:w-[46px] sm:h-[46px] rounded-full flex items-center justify-center
+                        transition-all duration-300 border-[3px]
+                        ${isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600 border-green-400 shadow-lg shadow-green-200' : ''}
+                        ${isCurrent ? 'bg-gradient-to-br from-blue-500 to-blue-600 border-blue-400 shadow-xl shadow-blue-200 scale-110' : ''}
+                        ${isUpcoming ? 'bg-white border-slate-300 shadow-sm' : ''}
+                      `}
+                    >
+                      {isCompleted ? (
+                        <Check size={20} className="text-white font-bold" strokeWidth={3} />
+                      ) : (
+                        <StepIcon
+                          size={isCurrent ? 20 : 18}
+                          className={`
+                            ${isCurrent ? 'text-white' : ''}
+                            ${isUpcoming ? 'text-slate-400' : ''}
+                          `}
+                          strokeWidth={2.5}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="mt-3 text-center min-w-[65px] sm:min-w-[75px]">
+                    <div
+                      className={`
+                        text-[11px] sm:text-xs font-bold transition-all duration-300 leading-tight
+                        ${isCompleted ? 'text-green-700' : ''}
+                        ${isCurrent ? 'text-blue-700 scale-105' : ''}
+                        ${isUpcoming ? 'text-slate-400' : ''}
+                      `}
+                    >
+                      {step.label}
+                    </div>
+                    <div
+                      className={`
+                        text-[9px] sm:text-[10px] transition-colors duration-300 mt-1 leading-tight
+                        ${isCompleted ? 'text-green-600' : ''}
+                        ${isCurrent ? 'text-blue-600' : ''}
+                        ${isUpcoming ? 'text-slate-300' : ''}
+                      `}
+                    >
+                      {step.description}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

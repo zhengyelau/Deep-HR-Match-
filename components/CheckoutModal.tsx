@@ -1,5 +1,5 @@
-import React from 'react';
-import { ShoppingCart, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShoppingCart, X, CreditCard, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button, Card } from './UI';
 import { MatchResult } from '../types';
 
@@ -11,9 +11,48 @@ interface CheckoutModalProps {
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, items, onProceed }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
   if (!isOpen) return null;
 
   const total = items.length * 10;
+
+  const handlePayment = async () => {
+    setIsProcessing(true);
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    setIsProcessing(false);
+    setPaymentSuccess(true);
+
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    onProceed();
+    setPaymentSuccess(false);
+  };
+
+  const handleClose = () => {
+    if (!isProcessing) {
+      onClose();
+    }
+  };
+
+  if (paymentSuccess) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-4">
+        <Card className="w-full max-w-md overflow-hidden shadow-2xl">
+          <div className="p-12 text-center">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-in zoom-in duration-300">
+              <CheckCircle2 size={48} className="text-green-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 mb-2">Payment Successful</h3>
+            <p className="text-slate-600">Redirecting to purchased candidates...</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-4">
@@ -22,7 +61,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, i
           <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <ShoppingCart size={20} className="text-blue-600"/> Checkout
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1 hover:bg-slate-200 rounded-full">
+          <button onClick={handleClose} disabled={isProcessing} className="text-slate-400 hover:text-slate-600 transition-colors p-1 hover:bg-slate-200 rounded-full disabled:opacity-50 disabled:cursor-not-allowed">
             <X size={20} />
           </button>
         </div>
@@ -63,9 +102,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, i
         </div>
 
         <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={onProceed} disabled={items.length === 0} className="px-6">
-            Proceed to Payment
+          <Button variant="secondary" onClick={handleClose} disabled={isProcessing}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handlePayment}
+            disabled={items.length === 0 || isProcessing}
+            isLoading={isProcessing}
+            className="px-6 bg-green-600 hover:bg-green-700"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Processing Payment...
+              </>
+            ) : (
+              <>
+                <CreditCard className="w-4 h-4" />
+                Proceed to Payment
+              </>
+            )}
           </Button>
         </div>
       </Card>

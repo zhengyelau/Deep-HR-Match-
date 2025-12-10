@@ -12,7 +12,10 @@ import { candidateEvaluationService } from './services/candidateEvaluationServic
 import { UploadPage } from './pages/UploadPage';
 import { DistributionPage } from './pages/DistributionPage';
 import { CandidateListPage } from './pages/CandidateListPage';
+import { PurchasedCandidatesPage } from './pages/PurchasedCandidatesPage';
 import { CheckoutModal } from './components/CheckoutModal';
+import { ProgressBar } from './components/ProgressBar';
+import { purchasedCandidatesService } from './services/purchasedCandidatesService';
 
 function App() {
   // Global Data State
@@ -22,7 +25,7 @@ function App() {
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
 
   // View State
-  const [viewMode, setViewMode] = useState<'distribution' | 'details' | 'shortlist'>('distribution');
+  const [viewMode, setViewMode] = useState<'distribution' | 'rating' | 'shortlisting' | 'checkout' | 'purchased'>('distribution');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   // Selection & Rating State
@@ -41,10 +44,11 @@ function App() {
   // Computed Values
   const currentJob = employers.find(e => e.job_id === selectedJobId);
   const selectedCount = selectedCandidateIds.size;
-  
+
   // Computed Lists
   const selectedMatches = matchResults.filter(r => selectedCandidateIds.has(r.candidate.candidate_id));
-  const shortlistedMatches = matchResults.filter(r => checkoutIds.has(r.candidate.candidate_id));
+  const ratedMatches = matchResults.filter(r => selectedCandidateIds.has(r.candidate.candidate_id));
+  const allRated = selectedMatches.every(r => candidateRatings[r.candidate.candidate_id]);
 
   // Load Initial Data
   useEffect(() => {
@@ -236,6 +240,27 @@ function App() {
       }
   };
 
+  const handleProceedToShortlisting = () => {
+    setViewMode('shortlisting');
+  };
+
+  const handleProceedToCheckout = () => {
+    setViewMode('checkout');
+  };
+
+  const handleCompletePurchase = async () => {
+    if (!currentJob) return;
+
+    const candidateIdsToPurchase = Array.from(paymentIds);
+    const success = await purchasedCandidatesService.purchaseCandidates(currentJob.job_id, candidateIdsToPurchase);
+
+    if (success) {
+      setIsCheckoutOpen(false);
+      setViewMode('purchased');
+      setPaymentIds(new Set());
+    }
+  };
+
   // Suggestions Calculation
   const suggestions = useMemo(() => {
       const unselected = matchResults.filter(r => !selectedCandidateIds.has(r.candidate.candidate_id));
@@ -297,6 +322,9 @@ function App() {
          </div>
       </header>
 
+      {/* Progress Bar - Show on all pages except upload */}
+      {selectedJobId && <ProgressBar currentView={viewMode} />}
+
       {/* Floating Selection Badge */}
       {selectedCount > 0 && viewMode === 'distribution' && (
          <div className="fixed right-6 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center animate-in slide-in-from-right-10">
@@ -322,33 +350,79 @@ function App() {
                  <h2 className="text-2xl font-bold text-slate-900">Loading data...</h2>
                </div>
              ) : viewMode === 'distribution' ? (
-                <DistributionPage 
+                <DistributionPage
                   matchResults={matchResults}
                   selectedJobId={selectedJobId}
                   employers={employers}
                   selectedCandidateIds={selectedCandidateIds}
                   onSetSelectedJobId={setSelectedJobId}
                   onToggleSelection={toggleSelection}
-                  onProceedToDetails={() => setViewMode('details')}
+                  onProceedToDetails={() => setViewMode('rating')}
                 />
-             ) : (
-                <CandidateListPage 
-                   viewMode={viewMode === 'details' ? 'details' : 'shortlist'}
-                   matchResults={viewMode === 'shortlist' ? shortlistedMatches : selectedMatches}
+             ) : viewMode === 'rating' ? (
+                <CandidateListPage
+                   viewMode="rating"
+                   matchResults={selectedMatches}
                    selectedCandidateIds={selectedCandidateIds}
                    checkoutIds={checkoutIds}
                    paymentIds={paymentIds}
                    candidateRatings={candidateRatings}
                    suggestions={suggestions}
+                   allRated={allRated}
                    onSetViewMode={setViewMode}
                    onUpdateRating={updateCandidateRating}
                    onToggleShortlist={toggleShortlist}
                    onTogglePayment={togglePayment}
                    onRemoveFromView={handleRemoveFromView}
                    onBatchSelect={handleBatchSelect}
+                   onProceedToNext={handleProceedToShortlisting}
                    onOpenCheckout={() => setIsCheckoutOpen(true)}
                 />
-             )}
+             ) : viewMode === 'shortlisting' ? (
+                <CandidateListPage
+                   viewMode="shortlisting"
+                   matchResults={selectedMatches}
+                   selectedCandidateIds={selectedCandidateIds}
+                   checkoutIds={checkoutIds}
+                   paymentIds={paymentIds}
+                   candidateRatings={candidateRatings}
+                   suggestions={suggestions}
+                   allRated={allRated}
+                   onSetViewMode={setViewMode}
+                   onUpdateRating={updateCandidateRating}
+                   onToggleShortlist={toggleShortlist}
+                   onTogglePayment={togglePayment}
+                   onRemoveFromView={handleRemoveFromView}
+                   onBatchSelect={handleBatchSelect}
+                   onProceedToNext={handleProceedToCheckout}
+                   onOpenCheckout={() => setIsCheckoutOpen(true)}
+                />
+             ) : viewMode === 'checkout' ? (
+                <CandidateListPage
+                   viewMode="checkout"
+                   matchResults={matchResults.filter(r => checkoutIds.has(r.candidate.candidate_id))}
+                   selectedCandidateIds={selectedCandidateIds}
+                   checkoutIds={checkoutIds}
+                   paymentIds={paymentIds}
+                   candidateRatings={candidateRatings}
+                   suggestions={suggestions}
+                   allRated={allRated}
+                   onSetViewMode={setViewMode}
+                   onUpdateRating={updateCandidateRating}
+                   onToggleShortlist={toggleShortlist}
+                   onTogglePayment={togglePayment}
+                   onRemoveFromView={handleRemoveFromView}
+                   onBatchSelect={handleBatchSelect}
+                   onProceedToNext={handleProceedToCheckout}
+                   onOpenCheckout={() => setIsCheckoutOpen(true)}
+                />
+             ) : viewMode === 'purchased' && currentJob ? (
+                <PurchasedCandidatesPage
+                   jobId={currentJob.job_id}
+                   employer={currentJob}
+                   onBack={() => setViewMode('checkout')}
+                />
+             ) : null}
           </>
         ) : (
            <UploadPage 
@@ -402,11 +476,11 @@ function App() {
         </div>
       </footer>
       
-      <CheckoutModal 
-         isOpen={isCheckoutOpen} 
-         onClose={() => setIsCheckoutOpen(false)} 
+      <CheckoutModal
+         isOpen={isCheckoutOpen}
+         onClose={() => setIsCheckoutOpen(false)}
          items={matchResults.filter(r => paymentIds.has(r.candidate.candidate_id))}
-         onProceed={() => alert("Proceeding to payment gateway...")}
+         onProceed={handleCompletePurchase}
       />
     </div>
   );

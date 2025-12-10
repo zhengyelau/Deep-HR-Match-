@@ -48,14 +48,6 @@ export const DistributionPage: React.FC<DistributionPageProps> = ({
             <h1 className="text-3xl font-bold text-blue-700 mb-6">Candidate Distribution</h1>
             
             <div className="flex flex-col gap-4">
-                <Button 
-                variant="secondary" 
-                onClick={() => onSetSelectedJobId(null)}
-                className="self-start text-slate-600 border-slate-300 hover:bg-slate-100 pl-3"
-                >
-                <ArrowLeft className="w-4 h-4 mr-2" /> Back to Data
-                </Button>
-                
                 <div className="w-full md:w-1/2">
                 <label className="block text-sm font-semibold text-slate-700 mb-2">Select Job Role</label>
                 <div className="relative">
@@ -219,7 +211,7 @@ export const DistributionPage: React.FC<DistributionPageProps> = ({
                     className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg font-bold rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center gap-3 shrink-0"
                 >
                     <Eye className="w-6 h-6" />
-                    Proceed to View Selected Candidates
+                    Proceed to indicate fit
                 </Button>
             </div>
             )}

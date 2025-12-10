@@ -6,8 +6,8 @@ import { CandidateCard } from '../components/CandidateCard';
 import { MatchResult } from '../types';
 
 interface CandidateListPageProps {
-  viewMode: 'details' | 'shortlist';
-  matchResults: MatchResult[]; // All filtered matches for this view
+  viewMode: 'rating' | 'shortlisting' | 'checkout';
+  matchResults: MatchResult[];
   selectedCandidateIds: Set<number>;
   checkoutIds: Set<number>;
   paymentIds: Set<number>;
@@ -16,53 +16,74 @@ interface CandidateListPageProps {
       domains: [string, { ids: number[], names: string[], scores: number[] }][];
       functions: [string, { ids: number[], names: string[], scores: number[] }][];
   };
-  onSetViewMode: (mode: 'distribution' | 'details' | 'shortlist') => void;
+  allRated: boolean;
+  onSetViewMode: (mode: 'distribution' | 'rating' | 'shortlisting' | 'checkout' | 'purchased') => void;
   onUpdateRating: (id: number, rating: string) => void;
   onToggleShortlist: (id: number) => void;
   onTogglePayment: (id: number) => void;
   onRemoveFromView: (id: number) => void;
   onBatchSelect: (ids: number[]) => void;
+  onProceedToNext: () => void;
   onOpenCheckout: () => void;
 }
 
 export const CandidateListPage: React.FC<CandidateListPageProps> = ({
   viewMode,
   matchResults,
-  selectedCandidateIds, // For Detail view removals
+  selectedCandidateIds,
   checkoutIds,
   paymentIds,
   candidateRatings,
   suggestions,
+  allRated,
   onSetViewMode,
   onUpdateRating,
   onToggleShortlist,
   onTogglePayment,
   onRemoveFromView,
   onBatchSelect,
+  onProceedToNext,
   onOpenCheckout
 }) => {
-  const isShortlistView = viewMode === 'shortlist';
-  
-  // Local filter state for Shortlist view
-  const [shortlistFilterRatings, setShortlistFilterRatings] = useState<Set<string>>(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']));
+  const isRatingView = viewMode === 'rating';
+  const isShortlistingView = viewMode === 'shortlisting';
+  const isCheckoutView = viewMode === 'checkout';
+
+  // Local filter state for Checkout view
+  const [checkoutFilterRatings, setCheckoutFilterRatings] = useState<Set<string>>(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']));
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // Local filter state for Shortlisting view
+  const [shortlistFilter, setShortlistFilter] = useState<'Top Fit' | 'Maybe' | 'Not a Fit'>('Top Fit');
 
   // Filter items logic
   let itemsToShow = matchResults;
 
-  if (isShortlistView) {
-      const isAllSelected = shortlistFilterRatings.size === 4;
+  if (isCheckoutView) {
+      const isAllSelected = checkoutFilterRatings.size === 4;
       if (!isAllSelected) {
           itemsToShow = itemsToShow.filter(r => {
               const rating = candidateRatings[r.candidate.candidate_id];
-              if (shortlistFilterRatings.has('Unrated') && !rating) return true;
-              if (rating && shortlistFilterRatings.has(rating)) return true;
+              if (checkoutFilterRatings.has('Unrated') && !rating) return true;
+              if (rating && checkoutFilterRatings.has(rating)) return true;
               return false;
           });
       }
   }
 
-  // Helper to render sections in Shortlist mode
+  if (isShortlistingView) {
+      itemsToShow = itemsToShow.filter(r => {
+          const rating = candidateRatings[r.candidate.candidate_id];
+          return rating === shortlistFilter;
+      });
+  }
+
+  // Calculate counts for each rating category (for Shortlisting view)
+  const topFitCount = isShortlistingView ? matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Top Fit').length : 0;
+  const maybeCount = isShortlistingView ? matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Maybe').length : 0;
+  const notAFitCount = isShortlistingView ? matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Not a Fit').length : 0;
+
+  // Helper to render sections in Checkout mode
   const renderSection = (title: string, icon: React.ReactNode, color: 'green' | 'orange' | 'rose' | 'slate', filterFn: (r: MatchResult) => boolean) => {
     const candidates = itemsToShow.filter(filterFn);
     if (candidates.length === 0) return null;
@@ -93,11 +114,10 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                  rating={candidateRatings[res.candidate.candidate_id] || ''}
                  isBookmarked={checkoutIds.has(res.candidate.candidate_id)}
                  isPaymentSelected={paymentIds.has(res.candidate.candidate_id)}
-                 isShortlistView={isShortlistView}
+                 viewMode={viewMode}
                  onRate={onUpdateRating}
                  onToggleShortlist={onToggleShortlist}
                  onTogglePayment={onTogglePayment}
-                 onRemove={onRemoveFromView}
                />
              </div>
           ))}
@@ -111,10 +131,10 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
       {/* 1. Header Row */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h2 className="text-2xl font-bold text-slate-900">
-            {isShortlistView ? 'Final Shortlist' : 'Shortlisted Candidate Details'}
+            {isRatingView ? 'Rate Candidates' : isShortlistingView ? 'Shortlist Candidates' : 'Purchase Candidate CV'}
           </h2>
           <div className="flex items-center gap-3">
-              {isShortlistView && (
+              {isCheckoutView && (
                   <div className="relative mr-2">
                       <button
                           onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -130,9 +150,9 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                               <div className="space-y-3">
                                   <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                                       <span className="text-sm font-bold text-slate-700">Filter by Rating</span>
-                                      {shortlistFilterRatings.size < 4 && (
+                                      {checkoutFilterRatings.size < 4 && (
                                           <button
-                                              onClick={() => setShortlistFilterRatings(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']))}
+                                              onClick={() => setCheckoutFilterRatings(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']))}
                                               className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                                           >
                                               Reset
@@ -141,20 +161,20 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                                   </div>
 
                                   {['Top Fit', 'Maybe', 'Not a Fit', 'Unrated'].map((rating) => {
-                                      const isChecked = shortlistFilterRatings.has(rating);
+                                      const isChecked = checkoutFilterRatings.has(rating);
                                       return (
                                           <label key={rating} className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-2 rounded transition-colors">
                                               <input
                                                   type="checkbox"
                                                   checked={isChecked}
                                                   onChange={(e) => {
-                                                      const newSet = new Set(shortlistFilterRatings);
+                                                      const newSet = new Set(checkoutFilterRatings);
                                                       if (e.target.checked) {
                                                           newSet.add(rating);
                                                       } else {
                                                           newSet.delete(rating);
                                                       }
-                                                      setShortlistFilterRatings(newSet);
+                                                      setCheckoutFilterRatings(newSet);
                                                   }}
                                                   className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
                                               />
@@ -175,9 +195,13 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                   </div>
               )}
               <span className="text-slate-500 text-sm hidden sm:inline">Viewing {itemsToShow.length} candidates</span>
-              {isShortlistView ? (
-                <Button variant="secondary" onClick={() => onSetViewMode('details')} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
-                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to Details
+              {isCheckoutView ? (
+                <Button variant="secondary" onClick={() => onSetViewMode('shortlisting')} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to Shortlisting
+                </Button>
+              ) : isShortlistingView ? (
+                <Button variant="secondary" onClick={() => onSetViewMode('rating')} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to Rating
                 </Button>
               ) : (
                 <Button variant="secondary" onClick={() => onSetViewMode('distribution')} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
@@ -189,8 +213,8 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
 
       <InstructionBanner viewMode={viewMode} />
 
-      {/* Discover Similar Candidates - Only on Details View */}
-      {!isShortlistView && (suggestions.domains.length > 0 || suggestions.functions.length > 0) && (
+      {/* Discover Similar Candidates - Only on Rating View */}
+      {/* {isRatingView && (suggestions.domains.length > 0 || suggestions.functions.length > 0) && (
           <div className="bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 border border-blue-200 rounded-2xl p-8 mb-8 animate-in fade-in slide-in-from-top-4 shadow-sm">
               <div className="flex items-start justify-between mb-6">
                   <div>
@@ -289,8 +313,10 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
           </div>
       )}
 
-      {/* Stats Cards - Only on Details View */}
-      {!isShortlistView && (
+      */}
+
+      {/* Stats Cards - Only on Rating View */}
+      {isRatingView && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 shadow-sm">
             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">NUMBER OF CANDIDATES</h4>
@@ -311,6 +337,74 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
       </div>
       )}
 
+      {/* Filter Buttons - Only on Shortlisting View */}
+      {isShortlistingView && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-8">
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Filter by Rating</h3>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => setShortlistFilter('Top Fit')}
+              className={`
+                flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-sm
+                ${shortlistFilter === 'Top Fit'
+                  ? 'bg-green-600 text-white border-2 border-green-600 shadow-md scale-105'
+                  : 'bg-white text-green-700 border-2 border-green-200 hover:border-green-300 hover:bg-green-50'}
+              `}
+            >
+              <Check size={18} />
+              Top Fit
+              <span className={`ml-2 px-2 py-0.5 rounded-full text-sm font-bold ${
+                shortlistFilter === 'Top Fit'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-green-100 text-green-800'
+              }`}>
+                {topFitCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setShortlistFilter('Maybe')}
+              className={`
+                flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-sm
+                ${shortlistFilter === 'Maybe'
+                  ? 'bg-orange-600 text-white border-2 border-orange-600 shadow-md scale-105'
+                  : 'bg-white text-orange-700 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-50'}
+              `}
+            >
+              <Info size={18} />
+              Maybe
+              <span className={`ml-2 px-2 py-0.5 rounded-full text-sm font-bold ${
+                shortlistFilter === 'Maybe'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-orange-100 text-orange-800'
+              }`}>
+                {maybeCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setShortlistFilter('Not a Fit')}
+              className={`
+                flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-sm
+                ${shortlistFilter === 'Not a Fit'
+                  ? 'bg-red-600 text-white border-2 border-red-600 shadow-md scale-105'
+                  : 'bg-white text-red-700 border-2 border-red-200 hover:border-red-300 hover:bg-red-50'}
+              `}
+            >
+              <X size={18} />
+              Not a Fit
+              <span className={`ml-2 px-2 py-0.5 rounded-full text-sm font-bold ${
+                shortlistFilter === 'Not a Fit'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {notAFitCount}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Candidates List Area */}
       <div className="pb-24">
         {itemsToShow.length === 0 ? (
@@ -324,32 +418,32 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                       No candidates found
                   </h3>
                   <p className="text-slate-500 mb-8 max-w-md text-center">
-                      {isShortlistView && shortlistFilterRatings.size < 4
+                      {isCheckoutView && checkoutFilterRatings.size < 4
                           ? "No candidates match the selected filter criteria."
+                          : isCheckoutView
+                          ? "No candidates have been shortlisted yet. Go back to shortlist candidates first."
                           : "There are no candidates to display in this view."}
                   </p>
                   <div className="flex gap-4">
-                      {isShortlistView && shortlistFilterRatings.size < 4 ? (
-                          <Button variant="secondary" onClick={() => setShortlistFilterRatings(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']))}>
+                      {isCheckoutView && checkoutFilterRatings.size < 4 ? (
+                          <Button variant="secondary" onClick={() => setCheckoutFilterRatings(new Set(['Top Fit', 'Maybe', 'Not a Fit', 'Unrated']))}>
                               Clear Filters
+                          </Button>
+                      ) : isCheckoutView ? (
+                          <Button variant="secondary" onClick={() => onSetViewMode('shortlisting')}>
+                              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Shortlisting
                           </Button>
                       ) : (
                           <Button variant="secondary" onClick={() => onSetViewMode('distribution')}>
                               <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
                           </Button>
                       )}
-
-                      {!isShortlistView && checkoutIds.size > 0 && (
-                          <Button onClick={() => onSetViewMode('shortlist')}>
-                              Proceed to Shortlist Page ({checkoutIds.size})
-                          </Button>
-                      )}
                   </div>
               </div>
             </div>
           </Card>
-        ) : isShortlistView ? (
-          // Shortlist View: Group by Rating
+        ) : isCheckoutView ? (
+          // Checkout View: Group by Rating (Only Shortlisted)
           <div className="space-y-8">
             {renderSection('Top Fit', <Check className="w-6 h-6" />, 'green', (r) => candidateRatings[r.candidate.candidate_id] === 'Top Fit')}
             {renderSection('Maybe', <Info className="w-6 h-6" />, 'orange', (r) => candidateRatings[r.candidate.candidate_id] === 'Maybe')}
@@ -369,8 +463,8 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                 </div>
             )}
           </div>
-        ) : (
-          // Details View: Single List
+        ) : isShortlistingView ? (
+          // Shortlisting View: Single List (No checkout buttons)
           <Card className="overflow-hidden border border-slate-200 shadow-sm">
             <div className="p-6 md:p-8">
               <div className="space-y-12">
@@ -381,26 +475,74 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                             rating={candidateRatings[res.candidate.candidate_id] || ''}
                             isBookmarked={checkoutIds.has(res.candidate.candidate_id)}
                             isPaymentSelected={paymentIds.has(res.candidate.candidate_id)}
-                            isShortlistView={isShortlistView}
+                            viewMode={viewMode}
                             onRate={onUpdateRating}
                             onToggleShortlist={onToggleShortlist}
                             onTogglePayment={onTogglePayment}
-                            onRemove={onRemoveFromView}
                           />
                       </div>
                   ))}
               </div>
 
-              {itemsToShow.length > 0 && (
+              {checkoutIds.size > 0 && (
                 <div className="mt-8 pt-8 border-t border-slate-100 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
                     <Button
                       size="lg"
-                      onClick={() => onSetViewMode('shortlist')}
+                      onClick={onProceedToNext}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg rounded-full flex items-center gap-2 font-bold shadow-xl transition-all hover:scale-105 pointer-events-auto"
                   >
                       <Bookmark className="w-5 h-5 fill-current" />
-                      Proceed to Shortlist Page ({checkoutIds.size})
+                      Proceed to Final Selection ({checkoutIds.size})
                   </Button>
+                </div>
+              )}
+
+              {checkoutIds.size === 0 && (
+                <div className="mt-8 pt-8 border-t border-slate-100 bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                    <p className="text-yellow-800 font-semibold text-lg mb-2">Please shortlist at least one candidate</p>
+                    <p className="text-yellow-700 text-sm">Click the Shortlist button on candidates you want to proceed with.</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        ) : (
+          // Rating View: Single List
+          <Card className="overflow-hidden border border-slate-200 shadow-sm">
+            <div className="p-6 md:p-8">
+              <div className="space-y-12">
+                  {itemsToShow.map((res, index) => (
+                      <div key={res.candidate.candidate_id} className={index > 0 ? "pt-12 border-t border-slate-200" : ""}>
+                          <CandidateCard
+                            result={res}
+                            rating={candidateRatings[res.candidate.candidate_id] || ''}
+                            isBookmarked={checkoutIds.has(res.candidate.candidate_id)}
+                            isPaymentSelected={paymentIds.has(res.candidate.candidate_id)}
+                            viewMode={viewMode}
+                            onRate={onUpdateRating}
+                            onToggleShortlist={onToggleShortlist}
+                            onTogglePayment={onTogglePayment}
+                          />
+                      </div>
+                  ))}
+              </div>
+
+              {itemsToShow.length > 0 && allRated && (
+                <div className="mt-8 pt-8 border-t border-slate-100 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
+                    <Button
+                      size="lg"
+                      onClick={onProceedToNext}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg rounded-full flex items-center gap-2 font-bold shadow-xl transition-all hover:scale-105 pointer-events-auto"
+                  >
+                      <Bookmark className="w-5 h-5" />
+                      Proceed to purchase candidates
+                  </Button>
+                </div>
+              )}
+
+              {itemsToShow.length > 0 && !allRated && (
+                <div className="mt-8 pt-8 border-t border-slate-100 bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                    <p className="text-yellow-800 font-semibold text-lg mb-2">Please rate all candidates before proceeding</p>
+                    <p className="text-yellow-700 text-sm">You need to assign a rating to each candidate to continue to shortlisting.</p>
                 </div>
               )}
             </div>
