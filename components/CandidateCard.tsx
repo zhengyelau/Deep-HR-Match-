@@ -232,7 +232,7 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
                     />
                 </button>
                 {expandBasicInfo && (
-                    <div className="px-5 pb-5 border-t border-orange-100">
+                    <div className="px-5 pb-5 pt-3 border-t border-orange-100">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <CriteriaItem label="Age" value={candidate.age} />
                             <CriteriaItem label="Gender" value={candidate.gender} />
@@ -267,7 +267,7 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
                         />
                     </button>
                     {expandQuestionnaire && (
-                        <div className="px-5 pb-5 border-t border-cyan-100">
+                        <div className="px-5 pb-5 pt-5 border-t border-cyan-100">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <QuestionItem question="Are you willing to work overtime" answer={q.q1_overtime_or_weekends} />
                                 <QuestionItem question="Do you have driving License" answer={q.q2_driving_license} />
