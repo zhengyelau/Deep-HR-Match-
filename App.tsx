@@ -17,6 +17,9 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { ProgressBar } from './components/ProgressBar';
 import { purchasedCandidatesService } from './services/purchasedCandidatesService';
 
+// Define SuggestionData type outside component for stable inference
+type SuggestionData = { ids: number[]; names: string[]; scores: number[] };
+
 function App() {
   // Global Data State
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -263,15 +266,13 @@ function App() {
 
   // Suggestions Calculation
   const suggestions = useMemo(() => {
-      type SuggestionData = { ids: number[], names: string[], scores: number[] };
       const unselected = matchResults.filter(r => !selectedCandidateIds.has(r.candidate.candidate_id));
       const domainMap = new Map<string, SuggestionData>();
       const functionMap = new Map<string, SuggestionData>();
 
       const addToMap = (map: Map<string, SuggestionData>, key: string, name: string, score: number, candidateId: number) => {
           if (!map.has(key)) {
-             // Explicitly cast empty arrays to avoid inference issues (unknown[] vs number[])
-             map.set(key, { ids: [] as number[], names: [] as string[], scores: [] as number[] });
+             map.set(key, { ids: [], names: [], scores: [] });
           }
           const entry = map.get(key)!;
           entry.ids.push(candidateId);
@@ -288,7 +289,7 @@ function App() {
           if (f && f !== 'Unknown') addToMap(functionMap, f, name, r.score, r.candidate.candidate_id);
       });
 
-      const sortMap = (map: Map<string, SuggestionData>) => {
+      const sortMap = (map: Map<string, SuggestionData>): [string, SuggestionData][] => {
           return Array.from(map.entries())
             .filter(([k, v]) => v.ids.length > 0)
             .sort((a, b) => b[1].ids.length - a[1].ids.length)
