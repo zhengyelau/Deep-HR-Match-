@@ -131,7 +131,7 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
       {/* 1. Header Row */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h2 className="text-2xl font-bold text-slate-900">
-            {isRatingView ? 'Rate Candidates' : isShortlistingView ? 'Shortlist Candidates' : 'Purchase Candidate CV'}
+            {isRatingView ? 'Indicate Candidates Fit' : isShortlistingView ? 'Shortlist Candidates' : 'Purchase Candidate CV'}
           </h2>
           <div className="flex items-center gap-3">
               {isCheckoutView && (
