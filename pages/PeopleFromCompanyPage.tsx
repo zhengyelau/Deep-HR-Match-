@@ -96,7 +96,7 @@ export const PeopleFromCompanyPage: React.FC<PeopleFromCompanyPageProps> = ({
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
-              People you may wish to hire
+              All Candidates from the Employer: {employer.employer_name}
             </h1>
             <p className="text-slate-600">
               {employer.job_title}
