@@ -43,8 +43,8 @@ export const SimplifiedCandidateCard: React.FC<SimplifiedCandidateCardProps> = (
   const { candidate } = result;
   const q = candidate.questionnaire;
 
-  const [expandBasicInfo, setExpandBasicInfo] = useState(false);
-  const [expandQuestionnaire, setExpandQuestionnaire] = useState(false);
+  const [expandBasicInfo, setExpandBasicInfo] = useState(true);
+  const [expandQuestionnaire, setExpandQuestionnaire] = useState(true);
 
   return (
     <div>
