@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShoppingCart, X, CreditCard } from 'lucide-react';
 import { Button, Card } from './UI';
+import { Avatar } from './Avatar';
 import { MatchResult } from '../types';
 
 interface CheckoutModalProps {
@@ -56,9 +57,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, i
             {items.map(item => (
               <div key={item.candidate.candidate_id} className="flex justify-between items-center text-sm p-2 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-100">
                 <div className="flex items-center gap-3">
-                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 flex items-center justify-center text-xs font-bold shadow-sm">
-                      {item.candidate.first_name[0]}{item.candidate.last_name[0]}
-                   </div>
+                   <Avatar
+                     candidateId={item.candidate.candidate_id}
+                     firstName={item.candidate.first_name}
+                     lastName={item.candidate.last_name}
+                     profilePictureUrl={item.candidate.profile_picture_url}
+                     size="sm"
+                   />
                    <div className="flex flex-col">
                       <span className="font-medium text-slate-800">{item.candidate.first_name} {item.candidate.last_name}</span>
                       <span className="text-xs text-slate-500">{item.candidate.current_city}</span>

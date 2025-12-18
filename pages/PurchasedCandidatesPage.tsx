@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, UserCheck, ArrowLeft, CheckCircle2, Circle, Mail, Phone } from 'lucide-react';
 import { Button, Card, Badge } from '../components/UI';
+import { Avatar } from '../components/Avatar';
 import { Candidate, Employer } from '../types';
 import { purchasedCandidatesService, PurchasedCandidate } from '../services/purchasedCandidatesService';
 import { candidatesService } from '../services/candidatesService';
@@ -207,14 +208,14 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
                 <div className="p-6">
                   <div className="flex flex-col lg:flex-row gap-6">
                     <div className="flex items-start gap-4 flex-1">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center text-xl font-bold shadow-md overflow-hidden shrink-0">
-                        {candidate.profile_picture_url && candidate.profile_picture_url.length > 5 ? (
-                          <img src={candidate.profile_picture_url} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
-                        ) : null}
-                        <span className={candidate.profile_picture_url && candidate.profile_picture_url.length > 5 ? 'hidden' : ''}>
-                          {candidate.first_name[0]}{candidate.last_name[0]}
-                        </span>
-                      </div>
+                      <Avatar
+                        candidateId={candidate.candidate_id}
+                        firstName={candidate.first_name}
+                        lastName={candidate.last_name}
+                        profilePictureUrl={candidate.profile_picture_url}
+                        size="lg"
+                        className="shrink-0"
+                      />
 
                       <div className="flex-1 min-w-0">
                         <h3 className="text-2xl font-bold text-slate-900 mb-2">

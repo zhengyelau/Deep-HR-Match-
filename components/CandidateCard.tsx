@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bookmark, Check, CheckSquare, Square, ChevronDown } from 'lucide-react';
 import { MatchResult } from '../types';
+import { Avatar } from './Avatar';
 
 interface CandidateCardProps {
   result: MatchResult;
@@ -58,15 +59,13 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
         {/* Candidate Header Row */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
             <div className="flex items-center gap-4">
-                {/* Avatar */}
-                <div className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-medium shadow-sm overflow-hidden">
-                    {candidate.profile_picture_url && candidate.profile_picture_url.length > 5 ? (
-                    <img src={candidate.profile_picture_url} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
-                    ) : null}
-                    <span className={candidate.profile_picture_url && candidate.profile_picture_url.length > 5 ? 'hidden' : ''}>
-                        {candidate.first_name[0]}{candidate.last_name[0]}
-                    </span>
-                </div>
+                <Avatar
+                    candidateId={candidate.candidate_id}
+                    firstName={candidate.first_name}
+                    lastName={candidate.last_name}
+                    profilePictureUrl={candidate.profile_picture_url}
+                    size="lg"
+                />
 
                 <div>
                     <h3 className="text-2xl font-bold text-slate-900 leading-none mb-3">
