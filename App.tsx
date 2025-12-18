@@ -14,6 +14,8 @@ import { DistributionPage } from './pages/DistributionPage';
 import { CandidateListPage } from './pages/CandidateListPage';
 import { PurchasedCandidatesPage } from './pages/PurchasedCandidatesPage';
 import { ShortlistedCandidatesPage } from './pages/ShortlistedCandidatesPage';
+import { PeopleFromCompanyPage } from './pages/PeopleFromCompanyPage';
+import { PeopleFromCompanyPurchasePage } from './pages/PeopleFromCompanyPurchasePage';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ProgressBar } from './components/ProgressBar';
 import { purchasedCandidatesService } from './services/purchasedCandidatesService';
@@ -29,8 +31,9 @@ function App() {
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
 
   // View State
-  const [viewMode, setViewMode] = useState<'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted'>('distribution');
+  const [viewMode, setViewMode] = useState<'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted' | 'peopleFromCompany' | 'peopleFromCompanyPurchase'>('distribution');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedEmployerForPeople, setSelectedEmployerForPeople] = useState<Employer | null>(null);
 
   // Selection & Rating State
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<number>>(new Set());
@@ -265,6 +268,19 @@ function App() {
     setViewMode('shortlisted');
   };
 
+  const handleViewPeopleFromCompany = (employer: Employer) => {
+    setSelectedEmployerForPeople(employer);
+    setViewMode('peopleFromCompany');
+  };
+
+  const handleProceedToPeopleFromCompanyPurchase = () => {
+    setViewMode('peopleFromCompanyPurchase');
+  };
+
+  const handlePeopleFromCompanyPurchaseComplete = () => {
+    setViewMode('purchased');
+  };
+
   const handleProgressStepClick = (stepId: 'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted') => {
     setViewMode(stepId);
   };
@@ -333,7 +349,17 @@ function App() {
       </header>
 
       {/* Progress Bar - Show on all pages except upload AND ensure data is not loading */}
-      {selectedJobId && !isProcessingMatches && <ProgressBar currentView={viewMode} onStepClick={handleProgressStepClick} />}
+      {selectedJobId && !isProcessingMatches && (
+        <ProgressBar
+          currentView={
+            viewMode === 'peopleFromCompany' ? 'rating' :
+            viewMode === 'peopleFromCompanyPurchase' ? 'checkout' :
+            viewMode
+          }
+          onStepClick={handleProgressStepClick}
+          variant={viewMode === 'peopleFromCompany' || viewMode === 'peopleFromCompanyPurchase' ? 'limited' : 'full'}
+        />
+      )}
 
       {/* Floating Selection Badge */}
       {selectedCount > 0 && viewMode === 'distribution' && (
@@ -415,6 +441,19 @@ function App() {
                    jobId={currentJob.job_id}
                    employer={currentJob}
                    onBack={() => setViewMode('purchased')}
+                   onViewPeopleFromCompany={handleViewPeopleFromCompany}
+                />
+             ) : viewMode === 'peopleFromCompany' && selectedEmployerForPeople ? (
+                <PeopleFromCompanyPage
+                   employer={selectedEmployerForPeople}
+                   onBack={() => setViewMode('shortlisted')}
+                   onProceedToPurchase={handleProceedToPeopleFromCompanyPurchase}
+                />
+             ) : viewMode === 'peopleFromCompanyPurchase' && selectedEmployerForPeople ? (
+                <PeopleFromCompanyPurchasePage
+                   employer={selectedEmployerForPeople}
+                   onBack={() => setViewMode('peopleFromCompany')}
+                   onPurchaseComplete={handlePeopleFromCompanyPurchaseComplete}
                 />
              ) : null}
           </>

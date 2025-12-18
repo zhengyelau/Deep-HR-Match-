@@ -86,4 +86,19 @@ export const purchasedCandidatesService = {
 
     return !!data;
   },
+
+  async getAllShortlistedCandidates(): Promise<PurchasedCandidate[]> {
+    const { data, error } = await supabase
+      .from('purchased_candidates')
+      .select('*')
+      .eq('is_shortlisted_for_interview', true)
+      .order('purchase_date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching all shortlisted candidates:', error);
+      return [];
+    }
+
+    return data || [];
+  },
 };

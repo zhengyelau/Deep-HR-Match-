@@ -4,16 +4,26 @@ import { Check, Eye, Star, Bookmark, ShoppingCart, FileCheck } from 'lucide-reac
 interface ProgressBarProps {
   currentView: 'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted';
   onStepClick?: (stepId: 'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted') => void;
+  variant?: 'full' | 'limited';
 }
 
-export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView, onStepClick }) => {
-  const steps = [
+export const ProgressBar: React.FC<ProgressBarProps> = ({ currentView, onStepClick, variant = 'full' }) => {
+  const allSteps = [
     { id: 'distribution', label: 'Distribution', description: 'View distribution of candidates', icon: Eye },
     { id: 'rating', label: 'Rate', description: 'Rate candidates by fit', icon: Star },
     { id: 'checkout', label: 'Purchase', description: 'Purchase candidate CVs', icon: ShoppingCart },
     { id: 'purchased', label: 'Review', description: 'Review purchased CVs', icon: FileCheck },
     { id: 'shortlisted', label: 'Shortlisted', description: 'View shortlisted candidates', icon: Bookmark },
   ];
+
+  const limitedSteps = [
+    { id: 'rating', label: 'Rate', description: 'Rate candidates by fit', icon: Star },
+    { id: 'checkout', label: 'Purchase', description: 'Purchase candidate CVs', icon: ShoppingCart },
+    { id: 'purchased', label: 'Review', description: 'Review purchased CVs', icon: FileCheck },
+    { id: 'shortlisted', label: 'Shortlisted', description: 'View shortlisted candidates', icon: Bookmark },
+  ];
+
+  const steps = variant === 'limited' ? limitedSteps : allSteps;
 
   const currentIndex = steps.findIndex(step => step.id === currentView);
   const progressPercentage = Math.min(100, Math.max(0, (currentIndex / (steps.length - 1)) * 100));

@@ -1,31 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Users, Mail, Phone, Download, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Users, Mail, Phone, Download, CheckCircle2, Building2 } from 'lucide-react';
 import { Button, Card, Badge } from '../components/UI';
 import { Candidate, Employer } from '../types';
 import { purchasedCandidatesService, PurchasedCandidate } from '../services/purchasedCandidatesService';
 import { candidatesService } from '../services/candidatesService';
+import { employersService } from '../services/employersService';
 
 interface ShortlistedCandidatesPageProps {
   jobId: number;
   employer: Employer;
   onBack: () => void;
+  onViewPeopleFromCompany: (employer: Employer) => void;
 }
 
 export const ShortlistedCandidatesPage: React.FC<ShortlistedCandidatesPageProps> = ({
   jobId,
   employer,
-  onBack
+  onBack,
+  onViewPeopleFromCompany
 }) => {
   const [shortlistedCandidates, setShortlistedCandidates] = useState<PurchasedCandidate[]>([]);
   const [candidatesData, setCandidatesData] = useState<Record<number, Candidate>>({});
+  const [employersData, setEmployersData] = useState<Record<number, Employer>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [downloadingIds, setDownloadingIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const loadShortlistedCandidates = async () => {
       setIsLoading(true);
-      const purchased = await purchasedCandidatesService.getPurchasedCandidatesByJobId(jobId);
-      const shortlisted = purchased.filter(p => p.is_shortlisted_for_interview);
+      const shortlisted = await purchasedCandidatesService.getAllShortlistedCandidates();
       setShortlistedCandidates(shortlisted);
 
       const candidateIds = shortlisted.map(p => p.candidate_id);
@@ -38,12 +41,23 @@ export const ShortlistedCandidatesPage: React.FC<ShortlistedCandidatesPageProps>
         }
       }
 
+      const jobIds = [...new Set(shortlisted.map(p => p.job_id))];
+      const employersMap: Record<number, Employer> = {};
+
+      for (const id of jobIds) {
+        const employer = await employersService.getEmployerByJobId(id);
+        if (employer) {
+          employersMap[id] = employer;
+        }
+      }
+
       setCandidatesData(candidatesMap);
+      setEmployersData(employersMap);
       setIsLoading(false);
     };
 
     loadShortlistedCandidates();
-  }, [jobId]);
+  }, []);
 
   const handleDownloadCV = async (candidate: Candidate) => {
     setDownloadingIds(prev => new Set(prev).add(candidate.candidate_id));
@@ -145,9 +159,9 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Shortlisted Candidates for Interview</h1>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">All Shortlisted Candidates for Interview</h1>
             <p className="text-slate-600">
-              {employer.job_title} - {employer.employer_name}
+              Showing shortlisted candidates from all job positions
             </p>
           </div>
           <Button variant="secondary" onClick={onBack} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
@@ -169,6 +183,7 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
         <div className="space-y-6">
           {shortlistedCandidates.map(purchased => {
             const candidate = candidatesData[purchased.candidate_id];
+            const purchasedEmployer = employersData[purchased.job_id];
             if (!candidate) return null;
 
             const isDownloading = downloadingIds.has(candidate.candidate_id);
@@ -200,6 +215,12 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
                             <CheckCircle2 size={12} />
                             Shortlisted for Interview
                           </Badge>
+                          {purchasedEmployer && (
+                            <Badge color="orange" className="flex items-center gap-1">
+                              <Building2 size={12} />
+                              {purchasedEmployer.employer_name}
+                            </Badge>
+                          )}
                           <Badge color="purple">
                             Purchased {new Date(purchased.purchase_date).toLocaleDateString()}
                           </Badge>
@@ -248,6 +269,17 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
                         <Download size={16} />
                         Download CV
                       </Button>
+
+                      {purchasedEmployer && (
+                        <Button
+                          onClick={() => onViewPeopleFromCompany(purchasedEmployer)}
+                          variant="secondary"
+                          className="px-4 py-2 flex items-center gap-2 whitespace-nowrap border-slate-300 bg-slate-50 hover:bg-blue-50 hover:border-blue-300"
+                        >
+                          <Building2 size={16} />
+                          Company {purchasedEmployer.employer_name}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
