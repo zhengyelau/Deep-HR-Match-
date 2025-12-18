@@ -88,7 +88,14 @@ export const candidatesService = {
       return [];
     }
 
-    return data || [];
+    return (data || []).map(row => ({
+      ...row,
+      questionnaire: row.elimination_criteria,
+      past_current_hierarchy: row.past_current_hierarchy_in_title,
+      past_current_title: row.past_current_job_title,
+      preferred_hierarchy: row.preferred_hierarchy_in_title,
+      preferred_title: row.preferred_job_title,
+    }));
   },
 
   async getCandidateById(candidateId: number): Promise<Candidate | null> {
@@ -103,7 +110,16 @@ export const candidatesService = {
       return null;
     }
 
-    return data || null;
+    if (!data) return null;
+
+    return {
+      ...data,
+      questionnaire: data.elimination_criteria,
+      past_current_hierarchy: data.past_current_hierarchy_in_title,
+      past_current_title: data.past_current_job_title,
+      preferred_hierarchy: data.preferred_hierarchy_in_title,
+      preferred_title: data.preferred_job_title,
+    };
   },
 
   async deleteCandidates(): Promise<boolean> {
