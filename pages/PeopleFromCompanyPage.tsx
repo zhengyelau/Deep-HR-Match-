@@ -98,9 +98,6 @@ export const PeopleFromCompanyPage: React.FC<PeopleFromCompanyPageProps> = ({
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
               All Candidates from the Employer: {employer.employer_name}
             </h1>
-            <p className="text-slate-600">
-              {employer.job_title}
-            </p>
           </div>
           <Button variant="secondary" onClick={onBack} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Shortlisted
