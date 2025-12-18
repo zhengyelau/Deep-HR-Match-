@@ -278,7 +278,7 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
                           className="px-4 py-2 flex items-center gap-2 whitespace-nowrap border-slate-300 bg-slate-50 hover:bg-blue-50 hover:border-blue-300"
                         >
                           <Building2 size={16} />
-                          Employer {purchasedEmployer.employer_name}
+                          {purchasedEmployer.employer_name}
                         </Button>
                       )}
                     </div>
