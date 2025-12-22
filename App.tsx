@@ -33,13 +33,14 @@ function App() {
   // View State
   const [viewMode, setViewMode] = useState<'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted' | 'peopleFromCompany' | 'peopleFromCompanyPurchase'>('distribution');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [selectedEmployerForPeople, setSelectedEmployerForPeople] = useState<Employer | null>(null);
+  const [selectedCompanyName, setSelectedCompanyName] = useState<string | null>(null);
 
   // Selection & Rating State
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<number>>(new Set());
   const [checkoutIds, setCheckoutIds] = useState<Set<number>>(new Set());
   const [paymentIds, setPaymentIds] = useState<Set<number>>(new Set());
   const [candidateRatings, setCandidateRatings] = useState<Record<number, string>>({});
+  const [purchasedCandidateIds, setPurchasedCandidateIds] = useState<Set<number>>(new Set());
 
   // Loading States
   const [isLoading, setIsLoading] = useState(true);
@@ -127,6 +128,11 @@ function App() {
           });
           // setCandidateRatings(ratings);
           // setCheckoutIds(shortlisted);
+
+          // Load purchased candidates for this job
+          const purchased = await purchasedCandidatesService.getPurchasedCandidatesByJobId(currentJob.job_id);
+          const purchasedIds = new Set(purchased.map(p => p.candidate_id));
+          setPurchasedCandidateIds(purchasedIds);
         } catch (error) {
           console.error('Error processing match results:', error);
           const results = processCandidates(candidates, currentJob);
@@ -268,8 +274,8 @@ function App() {
     setViewMode('shortlisted');
   };
 
-  const handleViewPeopleFromCompany = (employer: Employer) => {
-    setSelectedEmployerForPeople(employer);
+  const handleViewPeopleFromCompany = (companyName: string) => {
+    setSelectedCompanyName(companyName);
     setViewMode('peopleFromCompany');
   };
 
@@ -282,6 +288,19 @@ function App() {
   };
 
   const handleProgressStepClick = (stepId: 'distribution' | 'rating' | 'checkout' | 'purchased' | 'shortlisted') => {
+    // If we're in the company flow (selectedCompanyName is set) and clicking on Rating or Checkout
+    // we should navigate to the company-specific pages instead of the main flow
+    if (selectedCompanyName && (viewMode === 'peopleFromCompany' || viewMode === 'peopleFromCompanyPurchase')) {
+      if (stepId === 'rating') {
+        setViewMode('peopleFromCompany');
+        return;
+      }
+      if (stepId === 'checkout') {
+        setViewMode('peopleFromCompanyPurchase');
+        return;
+      }
+    }
+
     setViewMode(stepId);
   };
 
@@ -395,13 +414,15 @@ function App() {
                   onToggleSelection={toggleSelection}
                   onProceedToDetails={() => setViewMode('rating')}
                 />
-             ) : viewMode === 'rating' ? (
+             ) : viewMode === 'rating' && currentJob ? (
                 <CandidateListPage
                    viewMode="rating"
                    matchResults={selectedMatches}
                    selectedCandidateIds={selectedCandidateIds}
                    paymentIds={paymentIds}
                    candidateRatings={candidateRatings}
+                   purchasedCandidateIds={purchasedCandidateIds}
+                   jobId={currentJob.job_id}
                    suggestions={suggestions}
                    allRated={allRated}
                    onSetViewMode={setViewMode}
@@ -412,13 +433,15 @@ function App() {
                    onProceedToNext={handleProceedToCheckout}
                    onOpenCheckout={() => setIsCheckoutOpen(true)}
                 />
-             ) : viewMode === 'checkout' ? (
+             ) : viewMode === 'checkout' && currentJob ? (
                 <CandidateListPage
                    viewMode="checkout"
                    matchResults={selectedMatches}
                    selectedCandidateIds={selectedCandidateIds}
                    paymentIds={paymentIds}
                    candidateRatings={candidateRatings}
+                   purchasedCandidateIds={purchasedCandidateIds}
+                   jobId={currentJob.job_id}
                    suggestions={suggestions}
                    allRated={allRated}
                    onSetViewMode={setViewMode}
@@ -443,17 +466,21 @@ function App() {
                    onBack={() => setViewMode('purchased')}
                    onViewPeopleFromCompany={handleViewPeopleFromCompany}
                 />
-             ) : viewMode === 'peopleFromCompany' && selectedEmployerForPeople ? (
+             ) : viewMode === 'peopleFromCompany' && selectedCompanyName && currentJob ? (
                 <PeopleFromCompanyPage
-                   employer={selectedEmployerForPeople}
+                   companyName={selectedCompanyName}
+                   jobId={currentJob.job_id}
                    onBack={() => setViewMode('shortlisted')}
                    onProceedToPurchase={handleProceedToPeopleFromCompanyPurchase}
                 />
-             ) : viewMode === 'peopleFromCompanyPurchase' && selectedEmployerForPeople ? (
+             ) : viewMode === 'peopleFromCompanyPurchase' && selectedCompanyName && currentJob ? (
                 <PeopleFromCompanyPurchasePage
-                   employer={selectedEmployerForPeople}
+                   companyName={selectedCompanyName}
+                   jobId={currentJob.job_id}
+                   employer={currentJob}
                    onBack={() => setViewMode('peopleFromCompany')}
                    onPurchaseComplete={handlePeopleFromCompanyPurchaseComplete}
+                   onNavigateToPurchased={() => setViewMode('purchased')}
                 />
              ) : null}
           </>

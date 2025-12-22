@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ShoppingCart, Check, Info, X, CheckSquare, Square } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ArrowLeft, ShoppingCart, Check, Info, X, CheckSquare, Square, ShieldCheck, FileCheck } from 'lucide-react';
 import { Button, Card, Badge } from '../components/UI';
 import { Avatar } from '../components/Avatar';
 import { MatchResult, Employer } from '../types';
@@ -10,19 +10,26 @@ import { CheckoutModal } from '../components/CheckoutModal';
 import { purchasedCandidatesService } from '../services/purchasedCandidatesService';
 
 interface PeopleFromCompanyPurchasePageProps {
+  companyName: string;
+  jobId: number;
   employer: Employer;
   onBack: () => void;
   onPurchaseComplete: () => void;
+  onNavigateToPurchased?: () => void;
 }
 
 export const PeopleFromCompanyPurchasePage: React.FC<PeopleFromCompanyPurchasePageProps> = ({
+  companyName,
+  jobId,
   employer,
   onBack,
-  onPurchaseComplete
+  onPurchaseComplete,
+  onNavigateToPurchased
 }) => {
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
   const [candidateRatings, setCandidateRatings] = useState<Record<number, string>>({});
   const [paymentIds, setPaymentIds] = useState<Set<number>>(new Set());
+  const [purchasedCandidateIds, setPurchasedCandidateIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<'Top Fit' | 'Maybe' | 'Not a Fit'>('Top Fit');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -31,39 +38,41 @@ export const PeopleFromCompanyPurchasePage: React.FC<PeopleFromCompanyPurchasePa
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const candidates = await candidatesService.getCandidates();
-        const savedResults = await matchResultsService.getMatchResultsByJobId(employer.job_id);
+        const allCandidates = await candidatesService.getCandidates();
 
-        if (savedResults.length > 0) {
-          const enrichedResults = await Promise.all(savedResults.map(async (saved) => {
-            const candidate = candidates.find(c => c.candidate_id === saved.candidate_id);
-            if (!candidate) return null;
-            const breakdown = await matchResultsService.getMatchDetailsByResultId(saved.id);
+        // Filter candidates by company name
+        const filteredCandidates = allCandidates.filter(candidate =>
+          candidate.past_employer_1?.toLowerCase() === companyName.toLowerCase()
+        );
 
-            return {
-              candidate,
-              rank: saved.rank,
-              score: saved.score,
-              percentage: saved.percentage,
-              isEliminated: saved.is_eliminated,
-              eliminationReasons: saved.elimination_reasons || [],
-              details: { totalScore: saved.score, percentage: saved.percentage, breakdown: breakdown }
-            };
-          }));
+        // Create MatchResult objects without actual scoring
+        const results: MatchResult[] = filteredCandidates.map((candidate, index) => ({
+          candidate,
+          rank: index + 1,
+          score: 0,
+          percentage: 0,
+          isEliminated: false,
+          eliminationReasons: [],
+          details: { totalScore: 0, percentage: 0, breakdown: [] }
+        }));
 
-          const validResults = enrichedResults.filter((r): r is MatchResult => r !== null);
-          setMatchResults(validResults);
+        setMatchResults(results);
 
-          const evaluations = await candidateEvaluationService.getEvaluationsByJobId(employer.job_id);
-          const ratings: Record<number, string> = {};
-          validResults.forEach(r => {
-            const candidateId = r.candidate.candidate_id;
+        // Load evaluations if available (optional since we're filtering by company)
+        const evaluations = await candidateEvaluationService.getEvaluationsByJobId(jobId);
+        const ratings: Record<number, string> = {};
+        results.forEach(r => {
+          const candidateId = r.candidate.candidate_id;
             if (evaluations[candidateId]?.rating) {
               ratings[candidateId] = evaluations[candidateId].rating;
             }
           });
           setCandidateRatings(ratings);
-        }
+
+        // Load purchased candidates for this job
+        const purchased = await purchasedCandidatesService.getPurchasedCandidatesByJobId(jobId);
+        const purchasedIds = new Set(purchased.map(p => p.candidate_id));
+        setPurchasedCandidateIds(purchasedIds);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -72,7 +81,7 @@ export const PeopleFromCompanyPurchasePage: React.FC<PeopleFromCompanyPurchasePa
     };
 
     loadData();
-  }, [employer.job_id]);
+  }, [companyName, jobId]);
 
   const togglePayment = (id: number) => {
     const next = new Set(paymentIds);
@@ -83,7 +92,7 @@ export const PeopleFromCompanyPurchasePage: React.FC<PeopleFromCompanyPurchasePa
 
   const handleCompletePurchase = async () => {
     const candidateIdsToPurchase = Array.from(paymentIds);
-    const success = await purchasedCandidatesService.purchaseCandidates(employer.job_id, candidateIdsToPurchase);
+    const success = await purchasedCandidatesService.purchaseCandidates(jobId, candidateIdsToPurchase);
 
     if (success) {
       setIsCheckoutOpen(false);
@@ -97,9 +106,22 @@ export const PeopleFromCompanyPurchasePage: React.FC<PeopleFromCompanyPurchasePa
 
   const itemsToShow = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === activeFilter);
 
+  // Check if all rated candidates are already purchased
+  const allRatedCandidatesArePurchased = useMemo(() => {
+    const ratedCandidates = matchResults.filter(r => {
+      const rating = candidateRatings[r.candidate.candidate_id];
+      return rating === 'Top Fit' || rating === 'Maybe' || rating === 'Not a Fit';
+    });
+
+    if (ratedCandidates.length === 0) return false;
+
+    return ratedCandidates.every(r => purchasedCandidateIds.has(r.candidate.candidate_id));
+  }, [matchResults, candidateRatings, purchasedCandidateIds]);
+
   const renderCandidateCard = (res: MatchResult) => {
     const { candidate } = res;
     const isPaymentSelected = paymentIds.has(candidate.candidate_id);
+    const isPurchased = purchasedCandidateIds.has(candidate.candidate_id);
     const rating = candidateRatings[candidate.candidate_id];
 
     return (
@@ -131,16 +153,23 @@ export const PeopleFromCompanyPurchasePage: React.FC<PeopleFromCompanyPurchasePa
               {rating || 'Unrated'}
             </div>
 
-            <button
-              onClick={() => togglePayment(candidate.candidate_id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
-                ${isPaymentSelected
-                  ? 'bg-emerald-600 text-white border-emerald-600'
-                  : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300 hover:text-emerald-600'}`}
-            >
-              {isPaymentSelected ? <CheckSquare size={18} /> : <Square size={18} />}
-              <span className="font-bold">{isPaymentSelected ? 'Selected' : 'Select'}</span>
-            </button>
+            {isPurchased ? (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 shadow-sm">
+                <ShieldCheck size={18} />
+                <span className="font-bold">Already Purchased</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => togglePayment(candidate.candidate_id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
+                  ${isPaymentSelected
+                    ? 'bg-emerald-600 text-white border-emerald-600'
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300 hover:text-emerald-600'}`}
+              >
+                {isPaymentSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+                <span className="font-bold">{isPaymentSelected ? 'Selected' : 'Select'}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -212,8 +241,8 @@ export const PeopleFromCompanyPurchasePage: React.FC<PeopleFromCompanyPurchasePa
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Purchase Candidates from {employer.employer_name}</h1>
-            <p className="text-slate-600">{employer.job_title}</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Purchase Candidates from {companyName}</h1>
+            <p className="text-slate-600">For position: {employer.job_title}</p>
           </div>
           <Button variant="secondary" onClick={onBack} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Rating
@@ -292,6 +321,34 @@ export const PeopleFromCompanyPurchasePage: React.FC<PeopleFromCompanyPurchasePa
         {activeFilter === 'Top Fit' && renderSection('Top Fit', <Check className="w-6 h-6" />, 'green', (r) => candidateRatings[r.candidate.candidate_id] === 'Top Fit')}
         {activeFilter === 'Maybe' && renderSection('Maybe', <Info className="w-6 h-6" />, 'orange', (r) => candidateRatings[r.candidate.candidate_id] === 'Maybe')}
         {activeFilter === 'Not a Fit' && renderSection('Not a Fit', <X className="w-6 h-6" />, 'rose', (r) => candidateRatings[r.candidate.candidate_id] === 'Not a Fit')}
+
+        {allRatedCandidatesArePurchased && (
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-8 animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="bg-blue-600 text-white p-3 rounded-lg shrink-0">
+                  <FileCheck size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">
+                    All Rated Candidates Already Purchased
+                  </h3>
+                  <p className="text-slate-600">
+                    All candidates with ratings have been purchased previously. You can proceed to review their CVs and manage interview shortlists.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="lg"
+                onClick={onNavigateToPurchased}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg rounded-lg flex items-center gap-2 font-bold shadow-lg transition-all hover:scale-105 shrink-0"
+              >
+                <FileCheck className="w-5 h-5" />
+                Review Purchased CVs
+              </Button>
+            </div>
+          </div>
+        )}
 
         {paymentIds.size > 0 && (
           <div className="flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">

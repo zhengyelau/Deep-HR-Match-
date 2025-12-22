@@ -11,7 +11,7 @@ interface ShortlistedCandidatesPageProps {
   jobId: number;
   employer: Employer;
   onBack: () => void;
-  onViewPeopleFromCompany: (employer: Employer) => void;
+  onViewPeopleFromCompany: (companyName: string) => void;
 }
 
 export const ShortlistedCandidatesPage: React.FC<ShortlistedCandidatesPageProps> = ({
@@ -271,14 +271,14 @@ Talents:           ${candidate.past_current_talents || 'N/A'}
                         Download CV
                       </Button>
 
-                      {purchasedEmployer && (
+                      {candidate.past_employer_1 && (
                         <Button
-                          onClick={() => onViewPeopleFromCompany(purchasedEmployer)}
                           variant="secondary"
-                          className="px-4 py-2 flex items-center gap-2 whitespace-nowrap border-slate-300 bg-slate-50 hover:bg-blue-50 hover:border-blue-300"
+                          onClick={() => onViewPeopleFromCompany(candidate.past_employer_1!)}
+                          className="px-4 py-2 flex items-center gap-2 whitespace-nowrap border-blue-300 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 text-blue-700 hover:text-blue-800"
                         >
                           <Building2 size={16} />
-                          {purchasedEmployer.employer_name}
+                          {candidate.past_employer_1}
                         </Button>
                       )}
                     </div>

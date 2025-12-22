@@ -2,19 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Users, Search, ShoppingCart } from 'lucide-react';
 import { Button, Card } from '../components/UI';
 import { SimplifiedCandidateCard } from '../components/SimplifiedCandidateCard';
-import { MatchResult, Employer } from '../types';
+import { MatchResult, Candidate } from '../types';
 import { candidatesService } from '../services/candidatesService';
-import { matchResultsService } from '../services/matchResultsService';
 import { candidateEvaluationService } from '../services/candidateEvaluationService';
 
 interface PeopleFromCompanyPageProps {
-  employer: Employer;
+  companyName: string;
+  jobId: number;
   onBack: () => void;
   onProceedToPurchase: () => void;
 }
 
 export const PeopleFromCompanyPage: React.FC<PeopleFromCompanyPageProps> = ({
-  employer,
+  companyName,
+  jobId,
   onBack,
   onProceedToPurchase
 }) => {
@@ -26,39 +27,36 @@ export const PeopleFromCompanyPage: React.FC<PeopleFromCompanyPageProps> = ({
     const loadCandidates = async () => {
       setIsLoading(true);
       try {
-        const candidates = await candidatesService.getCandidates();
-        const savedResults = await matchResultsService.getMatchResultsByJobId(employer.job_id);
+        const allCandidates = await candidatesService.getCandidates();
 
-        if (savedResults.length > 0) {
-          const enrichedResults = await Promise.all(savedResults.map(async (saved) => {
-            const candidate = candidates.find(c => c.candidate_id === saved.candidate_id);
-            if (!candidate) return null;
-            const breakdown = await matchResultsService.getMatchDetailsByResultId(saved.id);
+        // Filter candidates by company name
+        const filteredCandidates = allCandidates.filter(candidate =>
+          candidate.past_employer_1?.toLowerCase() === companyName.toLowerCase()
+        );
 
-            return {
-              candidate,
-              rank: saved.rank,
-              score: saved.score,
-              percentage: saved.percentage,
-              isEliminated: saved.is_eliminated,
-              eliminationReasons: saved.elimination_reasons || [],
-              details: { totalScore: saved.score, percentage: saved.percentage, breakdown: breakdown }
-            };
-          }));
+        // Create MatchResult objects without actual scoring (since we're just browsing by company)
+        const results: MatchResult[] = filteredCandidates.map((candidate, index) => ({
+          candidate,
+          rank: index + 1,
+          score: 0,
+          percentage: 0,
+          isEliminated: false,
+          eliminationReasons: [],
+          details: { totalScore: 0, percentage: 0, breakdown: [] }
+        }));
 
-          const validResults = enrichedResults.filter((r): r is MatchResult => r !== null);
-          setMatchResults(validResults);
+        setMatchResults(results);
 
-          const evaluations = await candidateEvaluationService.getEvaluationsByJobId(employer.job_id);
-          const ratings: Record<number, string> = {};
-          validResults.forEach(r => {
-            const candidateId = r.candidate.candidate_id;
-            if (evaluations[candidateId]?.rating) {
-              ratings[candidateId] = evaluations[candidateId].rating;
-            }
-          });
-          setCandidateRatings(ratings);
-        }
+        // Load existing ratings for these candidates
+        const evaluations = await candidateEvaluationService.getEvaluationsByJobId(jobId);
+        const ratings: Record<number, string> = {};
+        results.forEach(r => {
+          const candidateId = r.candidate.candidate_id;
+          if (evaluations[candidateId]?.rating) {
+            ratings[candidateId] = evaluations[candidateId].rating;
+          }
+        });
+        setCandidateRatings(ratings);
       } catch (error) {
         console.error('Error loading candidates:', error);
       } finally {
@@ -67,11 +65,12 @@ export const PeopleFromCompanyPage: React.FC<PeopleFromCompanyPageProps> = ({
     };
 
     loadCandidates();
-  }, [employer.job_id]);
+  }, [companyName, jobId]);
 
   const updateCandidateRating = async (candidateId: number, rating: string) => {
     setCandidateRatings(prev => ({...prev, [candidateId]: rating}));
-    await candidateEvaluationService.saveEvaluation(employer.job_id, candidateId, rating, false);
+    // Save to database
+    await candidateEvaluationService.saveEvaluation(jobId, candidateId, rating, false);
   };
 
   const allRated = matchResults.length > 0 && matchResults.every(r => candidateRatings[r.candidate.candidate_id]);
@@ -96,8 +95,11 @@ export const PeopleFromCompanyPage: React.FC<PeopleFromCompanyPageProps> = ({
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
-              All Candidates from the Employer: {employer.employer_name}
+              All Candidates from {companyName}
             </h1>
+            <p className="text-slate-600">
+              Showing all candidates who previously worked at {companyName}
+            </p>
           </div>
           <Button variant="secondary" onClick={onBack} className="bg-slate-700 text-white border-transparent hover:bg-slate-800">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Shortlisted
@@ -112,7 +114,7 @@ export const PeopleFromCompanyPage: React.FC<PeopleFromCompanyPageProps> = ({
         </div>
         <div>
           <p className="text-blue-900/80 text-sm">
-            <span className="font-bold">Discover more candidates</span> who may be a good fit for this position at {employer.employer_name}.
+            <span className="font-bold">Discover more candidates</span> from {companyName} who may be a good fit for your positions.
             Review their profiles and rate them to expand your talent pool.
           </p>
         </div>

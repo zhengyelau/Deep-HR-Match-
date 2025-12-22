@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bookmark, Check, CheckSquare, Square, ChevronDown } from 'lucide-react';
+import { Bookmark, Check, CheckSquare, Square, ChevronDown, ShieldCheck } from 'lucide-react';
 import { MatchResult } from '../types';
 import { Avatar } from './Avatar';
 
@@ -7,6 +7,7 @@ interface CandidateCardProps {
   result: MatchResult;
   rating: string;
   isPaymentSelected: boolean;
+  isPurchased: boolean;
   viewMode: 'rating' | 'checkout';
   onRate: (id: number, rating: string) => void;
   onTogglePayment: (id: number) => void;
@@ -42,6 +43,7 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
   result,
   rating,
   isPaymentSelected,
+  isPurchased,
   viewMode,
   onRate,
   onTogglePayment
@@ -136,19 +138,26 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
 
                 {/* Final Select Button - Only in Checkout View */}
                 {isCheckoutView && (
-                    <button
-                        onClick={() => onTogglePayment(candidate.candidate_id)}
-                        className={`
-                            flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
-                            ${isPaymentSelected
-                                ? 'bg-emerald-600 text-white border-emerald-600'
-                                : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300 hover:text-emerald-600'}
-                        `}
-                        title={isPaymentSelected ? "Selected for Checkout" : "Select for Checkout"}
-                    >
-                        {isPaymentSelected ? <CheckSquare size={18} /> : <Square size={18} />}
-                        <span className="font-bold">{isPaymentSelected ? 'Selected' : 'Select'}</span>
-                    </button>
+                    isPurchased ? (
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 shadow-sm">
+                            <ShieldCheck size={18} />
+                            <span className="font-bold">Already Purchased</span>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => onTogglePayment(candidate.candidate_id)}
+                            className={`
+                                flex items-center gap-2 px-4 py-2 rounded-lg border transition-all shadow-sm
+                                ${isPaymentSelected
+                                    ? 'bg-emerald-600 text-white border-emerald-600'
+                                    : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300 hover:text-emerald-600'}
+                            `}
+                            title={isPaymentSelected ? "Selected for Checkout" : "Select for Checkout"}
+                        >
+                            {isPaymentSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+                            <span className="font-bold">{isPaymentSelected ? 'Selected' : 'Select'}</span>
+                        </button>
+                    )
                 )}
             </div>
         </div>

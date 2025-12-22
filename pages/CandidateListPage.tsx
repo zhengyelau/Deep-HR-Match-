@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, ArrowLeft, ShoppingCart, Check, Info, X } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, ArrowLeft, ShoppingCart, Check, Info, X, FileCheck } from 'lucide-react';
 import { Button, Card, Badge } from '../components/UI';
 import { InstructionBanner } from '../components/InstructionBanner';
 import { CandidateCard } from '../components/CandidateCard';
@@ -11,6 +11,8 @@ interface CandidateListPageProps {
   selectedCandidateIds: Set<number>;
   paymentIds: Set<number>;
   candidateRatings: Record<number, string>;
+  purchasedCandidateIds: Set<number>;
+  jobId: number;
   suggestions: {
       domains: [string, { ids: number[], names: string[], scores: number[] }][];
       functions: [string, { ids: number[], names: string[], scores: number[] }][];
@@ -31,6 +33,8 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
   selectedCandidateIds,
   paymentIds,
   candidateRatings,
+  purchasedCandidateIds,
+  jobId,
   suggestions,
   allRated,
   onSetViewMode,
@@ -62,6 +66,23 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
       });
   }
 
+  // Check if all rated candidates are already purchased
+  const allRatedCandidatesArePurchased = useMemo(() => {
+    if (!isCheckoutView) return false;
+
+    // Get all candidates with ratings (Top Fit, Maybe, Not a Fit)
+    const ratedCandidates = matchResults.filter(r => {
+      const rating = candidateRatings[r.candidate.candidate_id];
+      return rating === 'Top Fit' || rating === 'Maybe' || rating === 'Not a Fit';
+    });
+
+    // If no rated candidates, return false
+    if (ratedCandidates.length === 0) return false;
+
+    // Check if all rated candidates are purchased
+    return ratedCandidates.every(r => purchasedCandidateIds.has(r.candidate.candidate_id));
+  }, [isCheckoutView, matchResults, candidateRatings, purchasedCandidateIds]);
+
   // Helper to render sections in Checkout mode
   const renderSection = (title: string, icon: React.ReactNode, color: 'green' | 'orange' | 'rose' | 'slate', filterFn: (r: MatchResult) => boolean) => {
     const candidates = itemsToShow.filter(filterFn);
@@ -92,6 +113,7 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                  result={res}
                  rating={candidateRatings[res.candidate.candidate_id] || ''}
                  isPaymentSelected={paymentIds.has(res.candidate.candidate_id)}
+                 isPurchased={purchasedCandidateIds.has(res.candidate.candidate_id)}
                  viewMode={viewMode}
                  onRate={onUpdateRating}
                  onTogglePayment={onTogglePayment}
@@ -340,6 +362,34 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
             {activeFilter === 'Maybe' && renderSection('Maybe', <Info className="w-6 h-6" />, 'orange', (r) => candidateRatings[r.candidate.candidate_id] === 'Maybe')}
             {activeFilter === 'Not a Fit' && renderSection('Not a Fit', <X className="w-6 h-6" />, 'rose', (r) => candidateRatings[r.candidate.candidate_id] === 'Not a Fit')}
 
+            {allRatedCandidatesArePurchased && (
+                <div className="mt-8 bg-blue-50 border-2 border-blue-200 rounded-xl p-8 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-start gap-4">
+                            <div className="bg-blue-600 text-white p-3 rounded-lg shrink-0">
+                                <FileCheck size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">
+                                    All Rated Candidates Already Purchased
+                                </h3>
+                                <p className="text-slate-600">
+                                    All candidates with ratings have been purchased previously. You can proceed to review their CVs and manage interview shortlists.
+                                </p>
+                            </div>
+                        </div>
+                        <Button
+                            size="lg"
+                            onClick={() => onSetViewMode('purchased')}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg rounded-lg flex items-center gap-2 font-bold shadow-lg transition-all hover:scale-105 shrink-0"
+                        >
+                            <FileCheck className="w-5 h-5" />
+                            Review Purchased CVs
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {paymentIds.size > 0 && (
                 <div className="mt-8 flex justify-end animate-in fade-in slide-in-from-bottom-2 sticky bottom-4 z-10 pointer-events-none">
                     <Button
@@ -364,6 +414,7 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                             result={res}
                             rating={candidateRatings[res.candidate.candidate_id] || ''}
                             isPaymentSelected={paymentIds.has(res.candidate.candidate_id)}
+                            isPurchased={purchasedCandidateIds.has(res.candidate.candidate_id)}
                             viewMode={viewMode}
                             onRate={onUpdateRating}
                             onTogglePayment={onTogglePayment}

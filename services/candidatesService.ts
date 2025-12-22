@@ -41,6 +41,7 @@ export const candidatesService = {
         past_current_structural_skills: candidate.past_current_structural_skills,
         past_current_system: candidate.past_current_system,
         past_salary_monthly: candidate.minimum_expected_salary_monthly,
+        past_employer_1: candidate.past_employer_1,
         preferred_hierarchy_in_title: candidate.preferred_hierarchy,
         preferred_function_in_title: candidate.preferred_function,
         preferred_job_title: candidate.preferred_title,
@@ -95,6 +96,7 @@ export const candidatesService = {
       past_current_title: row.past_current_job_title,
       preferred_hierarchy: row.preferred_hierarchy_in_title,
       preferred_title: row.preferred_job_title,
+      past_employer_1: row.past_employer_1,
     }));
   },
 
@@ -119,6 +121,7 @@ export const candidatesService = {
       past_current_title: data.past_current_job_title,
       preferred_hierarchy: data.preferred_hierarchy_in_title,
       preferred_title: data.preferred_job_title,
+      past_employer_1: data.past_employer_1,
     };
   },
 
