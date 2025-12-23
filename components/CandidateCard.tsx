@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Bookmark, Check, CheckSquare, Square, ChevronDown, ShieldCheck } from 'lucide-react';
-import { MatchResult } from '../types';
+import { MatchResult, EmployerProfile } from '../types';
 import { Avatar } from './Avatar';
 
 interface CandidateCardProps {
@@ -9,6 +9,7 @@ interface CandidateCardProps {
   isPaymentSelected: boolean;
   isPurchased: boolean;
   viewMode: 'rating' | 'checkout';
+  employerProfile?: EmployerProfile | null;
   onRate: (id: number, rating: string) => void;
   onTogglePayment: (id: number) => void;
 }
@@ -45,6 +46,7 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
   isPaymentSelected,
   isPurchased,
   viewMode,
+  employerProfile,
   onRate,
   onTogglePayment
 }) => {
@@ -55,6 +57,7 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
 
   const [expandBasicInfo, setExpandBasicInfo] = useState(false);
   const [expandQuestionnaire, setExpandQuestionnaire] = useState(false);
+  const [expandEmployerExclusion, setExpandEmployerExclusion] = useState(false);
 
   return (
     <div>
@@ -106,16 +109,18 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
                             onChange={(e) => onRate(candidate.candidate_id, e.target.value)}
                             className={`
                                 appearance-none pl-5 pr-12 py-3.5 rounded-lg border-2 font-bold text-lg transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-lg min-w-[180px]
-                                ${rating === 'Top Fit' ? 'bg-green-50 border-green-300 text-green-700 hover:border-green-400' :
-                                    rating === 'Maybe' ? 'bg-orange-50 border-orange-300 text-orange-700 hover:border-orange-400' :
-                                    rating === 'Not a Fit' ? 'bg-red-50 border-red-300 text-red-700 hover:border-red-400' :
+                                ${rating === 'Top 10' ? 'bg-green-50 border-green-300 text-green-700 hover:border-green-400' :
+                                    rating === 'Top 20' ? 'bg-cyan-50 border-cyan-300 text-cyan-700 hover:border-cyan-400' :
+                                    rating === 'Top 50' ? 'bg-orange-50 border-orange-300 text-orange-700 hover:border-orange-400' :
+                                    rating === 'Top 100' ? 'bg-slate-50 border-slate-300 text-slate-700 hover:border-slate-400' :
                                     'bg-white border-blue-400 text-slate-500 hover:border-blue-500 hover:text-blue-600 ring-2 ring-blue-200'}
                             `}
                         >
                             <option value="" disabled>Rate This Candidate</option>
-                            <option value="Top Fit">Top Fit</option>
-                            <option value="Maybe">Maybe</option>
-                            <option value="Not a Fit">Not a Fit</option>
+                            <option value="Top 10">Top 10</option>
+                            <option value="Top 20">Top 20</option>
+                            <option value="Top 50">Top 50</option>
+                            <option value="Top 100">Top 100</option>
                         </select>
                         <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 ${rating ? 'text-current' : 'text-slate-400'}`}>
                             <ChevronDown size={18} />
@@ -127,9 +132,10 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
                 {isCheckoutView && (
                     <div className={`
                         px-4 py-2 rounded-lg border font-bold text-sm
-                        ${rating === 'Top Fit' ? 'bg-green-50 border-green-200 text-green-700' :
-                            rating === 'Maybe' ? 'bg-orange-50 border-orange-200 text-orange-700' :
-                            rating === 'Not a Fit' ? 'bg-red-50 border-red-200 text-red-700' :
+                        ${rating === 'Top 10' ? 'bg-green-50 border-green-200 text-green-700' :
+                            rating === 'Top 20' ? 'bg-cyan-50 border-cyan-200 text-cyan-700' :
+                            rating === 'Top 50' ? 'bg-orange-50 border-orange-200 text-orange-700' :
+                            rating === 'Top 100' ? 'bg-slate-50 border-slate-200 text-slate-700' :
                             'bg-slate-50 border-slate-200 text-slate-500'}
                     `}>
                         {rating || 'Unrated'}
@@ -196,7 +202,7 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
             </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
             {/* ORANGE SECTION: Elimination Criteria */}
             <div className="bg-orange-50 rounded-lg border border-orange-100 h-full">
                 <button
@@ -230,7 +236,7 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
                     </div>
                 )}
             </div>
-            
+
             {/* CYAN SECTION: Questionnaire */}
             {q && (
                 <div className="bg-cyan-50 rounded-lg border border-cyan-100 h-full">
@@ -260,6 +266,81 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
                 </div>
             )}
         </div>
+
+        {/* TEAL SECTION: Employer Exclusions */}
+        {employerProfile && (
+            <div className="bg-teal-50 rounded-lg border border-teal-100">
+                <button
+                    onClick={() => setExpandEmployerExclusion(!expandEmployerExclusion)}
+                    className="w-full flex items-center justify-between p-5 cursor-pointer hover:bg-teal-100/50 transition-colors rounded-t-lg"
+                >
+                    <h4 className="text-lg font-bold text-slate-900">Elimination Criteria - Exclusion</h4>
+                    <ChevronDown
+                        size={22}
+                        className={`text-teal-600 transition-transform duration-200 flex-shrink-0 ${expandEmployerExclusion ? 'rotate-180' : ''}`}
+                    />
+                </button>
+                {expandEmployerExclusion && (
+                    <div className="px-5 pb-5 pt-3 border-t border-teal-100">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <CriteriaItem
+                                label="Employer Race"
+                                value={
+                                    employerProfile.employer_race.length > 0
+                                        ? employerProfile.employer_race.join(', ')
+                                        : 'Any'
+                                }
+                                className="md:col-span-2"
+                            />
+                            <CriteriaItem
+                                label="Employer Religion"
+                                value={
+                                    employerProfile.employer_religion.length > 0
+                                        ? employerProfile.employer_religion.join(', ')
+                                        : 'Any'
+                                }
+                                className="md:col-span-2"
+                            />
+                            <CriteriaItem
+                                label="Employer Gender"
+                                value={
+                                    employerProfile.employer_gender.length > 0
+                                        ? employerProfile.employer_gender.join(', ')
+                                        : 'Any'
+                                }
+                                className="md:col-span-2"
+                            />
+                            <CriteriaItem
+                                label="Employer Country"
+                                value={
+                                    employerProfile.employer_country.length > 0
+                                        ? employerProfile.employer_country.join(', ')
+                                        : 'Any'
+                                }
+                                className="md:col-span-2"
+                            />
+                            <CriteriaItem
+                                label="Employer City"
+                                value={
+                                    employerProfile.employer_city.length > 0
+                                        ? employerProfile.employer_city.join(', ')
+                                        : 'Any'
+                                }
+                                className="md:col-span-2"
+                            />
+                            <CriteriaItem
+                                label="Incorporation Date"
+                                value={employerProfile.incorporation_date}
+                            />
+                            <CriteriaItem
+                                label="Employer Size"
+                                value={employerProfile.employer_size.toLocaleString()}
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
     </div>
   );
 };

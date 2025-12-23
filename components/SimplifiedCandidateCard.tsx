@@ -77,16 +77,18 @@ export const SimplifiedCandidateCard: React.FC<SimplifiedCandidateCardProps> = (
                         onChange={(e) => onRate(candidate.candidate_id, e.target.value)}
                         className={`
                             appearance-none pl-5 pr-12 py-3.5 rounded-lg border-2 font-bold text-lg transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-lg min-w-[180px]
-                            ${rating === 'Top Fit' ? 'bg-green-50 border-green-300 text-green-700 hover:border-green-400' :
-                                rating === 'Maybe' ? 'bg-orange-50 border-orange-300 text-orange-700 hover:border-orange-400' :
-                                rating === 'Not a Fit' ? 'bg-red-50 border-red-300 text-red-700 hover:border-red-400' :
+                            ${rating === 'Top 10' ? 'bg-green-50 border-green-300 text-green-700 hover:border-green-400' :
+                                rating === 'Top 20' ? 'bg-cyan-50 border-cyan-300 text-cyan-700 hover:border-cyan-400' :
+                                rating === 'Top 50' ? 'bg-orange-50 border-orange-300 text-orange-700 hover:border-orange-400' :
+                                rating === 'Top 100' ? 'bg-slate-50 border-slate-300 text-slate-700 hover:border-slate-400' :
                                 'bg-white border-blue-400 text-slate-500 hover:border-blue-500 hover:text-blue-600 ring-2 ring-blue-200'}
                         `}
                     >
                         <option value="" disabled>Rate This Candidate</option>
-                        <option value="Top Fit">Top Fit</option>
-                        <option value="Maybe">Maybe</option>
-                        <option value="Not a Fit">Not a Fit</option>
+                        <option value="Top 10">Top 10</option>
+                        <option value="Top 20">Top 20</option>
+                        <option value="Top 50">Top 50</option>
+                        <option value="Top 100">Top 100</option>
                     </select>
                     <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 ${rating ? 'text-current' : 'text-slate-400'}`}>
                         <ChevronDown size={18} />

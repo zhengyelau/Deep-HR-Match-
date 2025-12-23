@@ -1,4 +1,4 @@
-import { Candidate, Employer, MatchDetails, MatchResult } from '../types';
+import { Candidate, Employer, MatchDetails, MatchResult, CandidateExclusion, EmployerProfile } from '../types';
 
 // Helper: Parse comma separated string to array
 const parseList = (str?: string): string[] => {
@@ -29,6 +29,100 @@ const parseRange = (range?: string): { min: number, max: number } | null => {
     return { min: parts[0], max: parts[1] };
   }
   return null;
+};
+
+// 0. Candidate Exclusion Logic - Check if candidate has excluded this employer
+export const checkCandidateExclusion = (
+  candidate: Candidate,
+  employer: Employer,
+  candidateExclusion: CandidateExclusion | null,
+  employerProfile: EmployerProfile | null
+): { excluded: boolean, reasons: string[] } => {
+  const reasons: string[] = [];
+
+  if (!candidateExclusion || !employerProfile) {
+    return { excluded: false, reasons: [] };
+  }
+
+  // 1. Check if candidate excluded this employer by name
+  if (candidateExclusion.excluded_employer_name && candidateExclusion.excluded_employer_name.length > 0) {
+    const excludedNames = candidateExclusion.excluded_employer_name.map(name => name.toLowerCase());
+    if (excludedNames.includes(employer.employer_name.toLowerCase())) {
+      reasons.push(`Candidate excluded employer: ${employer.employer_name}`);
+    }
+  }
+
+  // 2. Check if candidate excluded any of the employer's races
+  if (candidateExclusion.excluded_employer_race && candidateExclusion.excluded_employer_race.length > 0) {
+    const excludedRaces = candidateExclusion.excluded_employer_race.map(race => race.toLowerCase());
+    const employerRaces = employerProfile.employer_race.map(race => race.toLowerCase());
+    const matchingRaces = employerRaces.filter(race => excludedRaces.includes(race));
+
+    if (matchingRaces.length > 0) {
+      reasons.push(`Candidate excluded employer race: ${matchingRaces.join(', ')}`);
+    }
+  }
+
+  // 3. Check if candidate excluded any of the employer's religions
+  if (candidateExclusion.excluded_employer_religion && candidateExclusion.excluded_employer_religion.length > 0) {
+    const excludedReligions = candidateExclusion.excluded_employer_religion.map(religion => religion.toLowerCase());
+    const employerReligions = employerProfile.employer_religion.map(religion => religion.toLowerCase());
+    const matchingReligions = employerReligions.filter(religion => excludedReligions.includes(religion));
+
+    if (matchingReligions.length > 0) {
+      reasons.push(`Candidate excluded employer religion: ${matchingReligions.join(', ')}`);
+    }
+  }
+
+  // 4. Check if candidate excluded any of the employer's genders
+  if (candidateExclusion.excluded_employer_gender && candidateExclusion.excluded_employer_gender.length > 0) {
+    const excludedGenders = candidateExclusion.excluded_employer_gender.map(gender => gender.toLowerCase());
+    const employerGenders = employerProfile.employer_gender.map(gender => gender.toLowerCase());
+    const matchingGenders = employerGenders.filter(gender => excludedGenders.includes(gender));
+
+    if (matchingGenders.length > 0) {
+      reasons.push(`Candidate excluded employer gender: ${matchingGenders.join(', ')}`);
+    }
+  }
+
+  // 5. Check if candidate excluded any of the employer's countries
+  if (candidateExclusion.excluded_emplyer_country && candidateExclusion.excluded_emplyer_country.length > 0) {
+    const excludedCountries = candidateExclusion.excluded_emplyer_country.map(country => country.toLowerCase());
+    const employerCountries = employerProfile.employer_country.map(country => country.toLowerCase());
+    const matchingCountries = employerCountries.filter(country => excludedCountries.includes(country));
+
+    if (matchingCountries.length > 0) {
+      reasons.push(`Candidate excluded employer country: ${matchingCountries.join(', ')}`);
+    }
+  }
+
+  // 6. Check if candidate excluded any of the employer's cities
+  if (candidateExclusion.excluded_employer_city && candidateExclusion.excluded_employer_city.length > 0) {
+    const excludedCities = candidateExclusion.excluded_employer_city.map(city => city.toLowerCase());
+    const employerCities = employerProfile.employer_city.map(city => city.toLowerCase());
+    const matchingCities = employerCities.filter(city => excludedCities.includes(city));
+
+    if (matchingCities.length > 0) {
+      reasons.push(`Candidate excluded employer city: ${matchingCities.join(', ')}`);
+    }
+  }
+
+  // 7. Check if candidate excluded the employer's incorporation date
+  if (candidateExclusion.excluded_employer_incorporation_date && candidateExclusion.excluded_employer_incorporation_date.length > 0) {
+    const excludedDates = candidateExclusion.excluded_employer_incorporation_date.map(date => date.toLowerCase());
+    if (excludedDates.includes(employerProfile.incorporation_date.toLowerCase())) {
+      reasons.push(`Candidate excluded employer incorporation date: ${employerProfile.incorporation_date}`);
+    }
+  }
+
+  // 8. Check if employer size exceeds candidate's excluded size threshold
+  if (candidateExclusion.excluded_employer_size && candidateExclusion.excluded_employer_size > 0) {
+    if (employerProfile.employer_size >= candidateExclusion.excluded_employer_size) {
+      reasons.push(`Candidate excluded employers with size >= ${candidateExclusion.excluded_employer_size} (employer size: ${employerProfile.employer_size})`);
+    }
+  }
+
+  return { excluded: reasons.length > 0, reasons };
 };
 
 // 1. Elimination Logic
@@ -154,8 +248,30 @@ export const calculateScore = (candidate: Candidate, employer: Employer): MatchD
   return { totalScore, percentage, breakdown };
 };
 
-export const processCandidates = (candidates: Candidate[], employer: Employer): MatchResult[] => {
+export const processCandidates = (
+  candidates: Candidate[],
+  employer: Employer,
+  candidateExclusions: CandidateExclusion[] = [],
+  employerProfile: EmployerProfile | null = null
+): MatchResult[] => {
   const results = candidates.map(candidate => {
+    // 0. Check if candidate has excluded this employer (happens FIRST)
+    const candidateExclusion = candidateExclusions.find(exc => exc.candidate_id === candidate.candidate_id) || null;
+    const exclusionResult = checkCandidateExclusion(candidate, employer, candidateExclusion, employerProfile);
+
+    if (exclusionResult.excluded) {
+      return {
+        candidate,
+        rank: 0,
+        score: 0,
+        percentage: 0,
+        isEliminated: true,
+        eliminationReasons: exclusionResult.reasons,
+        details: { totalScore: 0, percentage: 0, breakdown: [] }
+      };
+    }
+
+    // 1. Check standard elimination criteria
     const elimResult = checkElimination(candidate, employer);
     if (elimResult.eliminated) {
       return {
@@ -169,6 +285,7 @@ export const processCandidates = (candidates: Candidate[], employer: Employer): 
       };
     }
 
+    // 2. Calculate match score
     const matchDetails = calculateScore(candidate, employer);
     return {
       candidate,

@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowLeft, ShoppingCart, Check, Info, X, FileCheck } from 'lucide-react';
+import { Search, ArrowLeft, ShoppingCart, Check, Info, X, FileCheck, ArrowRight } from 'lucide-react';
 import { Button, Card, Badge } from '../components/UI';
 import { InstructionBanner } from '../components/InstructionBanner';
 import { CandidateCard } from '../components/CandidateCard';
-import { MatchResult } from '../types';
+import { MatchResult, EmployerProfile } from '../types';
 
 interface CandidateListPageProps {
   viewMode: 'rating' | 'checkout';
@@ -13,6 +13,8 @@ interface CandidateListPageProps {
   candidateRatings: Record<number, string>;
   purchasedCandidateIds: Set<number>;
   jobId: number;
+  employerName: string;
+  employerProfiles: EmployerProfile[];
   suggestions: {
       domains: [string, { ids: number[], names: string[], scores: number[] }][];
       functions: [string, { ids: number[], names: string[], scores: number[] }][];
@@ -35,6 +37,8 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
   candidateRatings,
   purchasedCandidateIds,
   jobId,
+  employerName,
+  employerProfiles,
   suggestions,
   allRated,
   onSetViewMode,
@@ -48,21 +52,43 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
   const isRatingView = viewMode === 'rating';
   const isCheckoutView = viewMode === 'checkout';
 
+  // Find the employer profile for this job
+  const employerProfile = useMemo(() => {
+    return employerProfiles.find(ep => ep.employer_name === employerName) || null;
+  }, [employerProfiles, employerName]);
+
   // Local filter state for Checkout view
-  const [activeFilter, setActiveFilter] = useState<'Top Fit' | 'Maybe' | 'Not a Fit'>('Top Fit');
+  const [activeFilter, setActiveFilter] = useState<'Top 10' | 'Top 20' | 'Top 50' | 'Top 100'>('Top 10');
 
-  // Calculate counts for each category
-  const topFitCount = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Top Fit').length;
-  const maybeCount = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Maybe').length;
-  const notFitCount = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Not a Fit').length;
+  // Calculate counts for each category (individual counts)
+  const top10OnlyCount = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Top 10').length;
+  const top20OnlyCount = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Top 20').length;
+  const top50OnlyCount = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Top 50').length;
+  const top100OnlyCount = matchResults.filter(r => candidateRatings[r.candidate.candidate_id] === 'Top 100').length;
 
-  // Filter items logic
+  // Calculate cumulative counts for display
+  const top10Count = top10OnlyCount;
+  const top20Count = top10OnlyCount + top20OnlyCount;
+  const top50Count = top10OnlyCount + top20OnlyCount + top50OnlyCount;
+  const top100Count = top10OnlyCount + top20OnlyCount + top50OnlyCount + top100OnlyCount;
+
+  // Filter items logic - CUMULATIVE
   let itemsToShow = matchResults;
 
   if (isCheckoutView) {
       itemsToShow = itemsToShow.filter(r => {
           const rating = candidateRatings[r.candidate.candidate_id];
-          return rating === activeFilter;
+          // Cumulative filtering based on activeFilter
+          if (activeFilter === 'Top 10') {
+              return rating === 'Top 10';
+          } else if (activeFilter === 'Top 20') {
+              return rating === 'Top 10' || rating === 'Top 20';
+          } else if (activeFilter === 'Top 50') {
+              return rating === 'Top 10' || rating === 'Top 20' || rating === 'Top 50';
+          } else if (activeFilter === 'Top 100') {
+              return rating === 'Top 10' || rating === 'Top 20' || rating === 'Top 50' || rating === 'Top 100';
+          }
+          return false;
       });
   }
 
@@ -70,10 +96,10 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
   const allRatedCandidatesArePurchased = useMemo(() => {
     if (!isCheckoutView) return false;
 
-    // Get all candidates with ratings (Top Fit, Maybe, Not a Fit)
+    // Get all candidates with ratings (Top 10, Top 20, Top 50, Top 100)
     const ratedCandidates = matchResults.filter(r => {
       const rating = candidateRatings[r.candidate.candidate_id];
-      return rating === 'Top Fit' || rating === 'Maybe' || rating === 'Not a Fit';
+      return rating === 'Top 10' || rating === 'Top 20' || rating === 'Top 50' || rating === 'Top 100';
     });
 
     // If no rated candidates, return false
@@ -115,6 +141,7 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                  isPaymentSelected={paymentIds.has(res.candidate.candidate_id)}
                  isPurchased={purchasedCandidateIds.has(res.candidate.candidate_id)}
                  viewMode={viewMode}
+                 employerProfile={employerProfile}
                  onRate={onUpdateRating}
                  onTogglePayment={onTogglePayment}
                />
@@ -149,60 +176,95 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
 
       {/* Filter Toggle Buttons - Only on Checkout View */}
       {isCheckoutView && (
-        <div className="flex flex-wrap gap-4 mb-8">
-          <button
-            onClick={() => setActiveFilter('Top Fit')}
-            className={`flex items-center gap-3 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-md hover:shadow-lg ${
-              activeFilter === 'Top Fit'
-                ? 'bg-green-600 text-white scale-105'
-                : 'bg-white text-green-700 border-2 border-green-300 hover:border-green-400'
-            }`}
-          >
-            <span>Top Fit</span>
-            <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
-              activeFilter === 'Top Fit'
-                ? 'bg-white text-green-600'
-                : 'bg-green-100 text-green-700'
-            }`}>
-              {topFitCount}
-            </span>
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div className="flex flex-wrap gap-4">
+            <button
+              onClick={() => setActiveFilter('Top 10')}
+              className={`flex items-center gap-3 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-md hover:shadow-lg ${
+                activeFilter === 'Top 10'
+                  ? 'bg-green-600 text-white scale-105'
+                  : 'bg-white text-green-700 border-2 border-green-300 hover:border-green-400'
+              }`}
+            >
+              <span>Top 10</span>
+              <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                activeFilter === 'Top 10'
+                  ? 'bg-white text-green-600'
+                  : 'bg-green-100 text-green-700'
+              }`}>
+                {top10Count}
+              </span>
+            </button>
 
-          <button
-            onClick={() => setActiveFilter('Maybe')}
-            className={`flex items-center gap-3 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-md hover:shadow-lg ${
-              activeFilter === 'Maybe'
-                ? 'bg-orange-600 text-white scale-105'
-                : 'bg-white text-orange-700 border-2 border-orange-300 hover:border-orange-400'
-            }`}
-          >
-            <span>Maybe</span>
-            <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
-              activeFilter === 'Maybe'
-                ? 'bg-white text-orange-600'
-                : 'bg-orange-100 text-orange-700'
-            }`}>
-              {maybeCount}
-            </span>
-          </button>
+            <button
+              onClick={() => setActiveFilter('Top 20')}
+              className={`flex items-center gap-3 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-md hover:shadow-lg ${
+                activeFilter === 'Top 20'
+                  ? 'bg-cyan-600 text-white scale-105'
+                  : 'bg-white text-cyan-700 border-2 border-cyan-300 hover:border-cyan-400'
+              }`}
+            >
+              <span>Top 20</span>
+              <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                activeFilter === 'Top 20'
+                  ? 'bg-white text-cyan-600'
+                  : 'bg-cyan-100 text-cyan-700'
+              }`}>
+                {top20Count}
+              </span>
+            </button>
 
-          <button
-            onClick={() => setActiveFilter('Not a Fit')}
-            className={`flex items-center gap-3 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-md hover:shadow-lg ${
-              activeFilter === 'Not a Fit'
-                ? 'bg-red-600 text-white scale-105'
-                : 'bg-white text-red-700 border-2 border-red-300 hover:border-red-400'
-            }`}
-          >
-            <span>Not a Fit</span>
-            <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
-              activeFilter === 'Not a Fit'
-                ? 'bg-white text-red-600'
-                : 'bg-red-100 text-red-700'
-            }`}>
-              {notFitCount}
-            </span>
-          </button>
+            <button
+              onClick={() => setActiveFilter('Top 50')}
+              className={`flex items-center gap-3 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-md hover:shadow-lg ${
+                activeFilter === 'Top 50'
+                  ? 'bg-orange-600 text-white scale-105'
+                  : 'bg-white text-orange-700 border-2 border-orange-300 hover:border-orange-400'
+              }`}
+            >
+              <span>Top 50</span>
+              <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                activeFilter === 'Top 50'
+                  ? 'bg-white text-orange-600'
+                  : 'bg-orange-100 text-orange-700'
+              }`}>
+                {top50Count}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveFilter('Top 100')}
+              className={`flex items-center gap-3 px-6 py-3 rounded-lg font-bold text-base transition-all shadow-md hover:shadow-lg ${
+                activeFilter === 'Top 100'
+                  ? 'bg-slate-600 text-white scale-105'
+                  : 'bg-white text-slate-700 border-2 border-slate-300 hover:border-slate-400'
+              }`}
+            >
+              <span>Top 100</span>
+              <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                activeFilter === 'Top 100'
+                  ? 'bg-white text-slate-600'
+                  : 'bg-slate-100 text-slate-700'
+              }`}>
+                {top100Count}
+              </span>
+            </button>
+          </div>
+          
+          {/* Next XX Button - Only show when not on Top 100 */}
+          {activeFilter !== 'Top 100' && (
+            <Button
+              onClick={() => {
+                if (activeFilter === 'Top 10') setActiveFilter('Top 20');
+                else if (activeFilter === 'Top 20') setActiveFilter('Top 50');
+                else if (activeFilter === 'Top 50') setActiveFilter('Top 100');
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 text-base rounded-lg flex items-center gap-2 font-bold shadow-lg transition-all hover:scale-105"
+            >
+              Next {activeFilter === 'Top 10' ? '10' : activeFilter === 'Top 20' ? '20' : '50'}
+              <ArrowRight className="w-5 h-5" />
+            </Button>
+          )}
         </div>
       )}
 
@@ -356,11 +418,23 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
             </div>
           </Card>
         ) : isCheckoutView ? (
-          // Checkout View: Show filtered section based on activeFilter
+          // Checkout View: Show cumulative sections based on activeFilter
           <div className="space-y-8">
-            {activeFilter === 'Top Fit' && renderSection('Top Fit', <Check className="w-6 h-6" />, 'green', (r) => candidateRatings[r.candidate.candidate_id] === 'Top Fit')}
-            {activeFilter === 'Maybe' && renderSection('Maybe', <Info className="w-6 h-6" />, 'orange', (r) => candidateRatings[r.candidate.candidate_id] === 'Maybe')}
-            {activeFilter === 'Not a Fit' && renderSection('Not a Fit', <X className="w-6 h-6" />, 'rose', (r) => candidateRatings[r.candidate.candidate_id] === 'Not a Fit')}
+            {/* Always show Top 10 if we're viewing Top 10 or above */}
+            {(activeFilter === 'Top 10' || activeFilter === 'Top 20' || activeFilter === 'Top 50' || activeFilter === 'Top 100') &&
+              renderSection('Top 10', <Check className="w-6 h-6" />, 'green', (r) => candidateRatings[r.candidate.candidate_id] === 'Top 10')}
+
+            {/* Show Top 20 if we're viewing Top 20 or above */}
+            {(activeFilter === 'Top 20' || activeFilter === 'Top 50' || activeFilter === 'Top 100') &&
+              renderSection('Top 20', <Check className="w-6 h-6" />, 'green', (r) => candidateRatings[r.candidate.candidate_id] === 'Top 20')}
+
+            {/* Show Top 50 if we're viewing Top 50 or above */}
+            {(activeFilter === 'Top 50' || activeFilter === 'Top 100') &&
+              renderSection('Top 50', <Info className="w-6 h-6" />, 'orange', (r) => candidateRatings[r.candidate.candidate_id] === 'Top 50')}
+
+            {/* Show Top 100 only when viewing Top 100 */}
+            {activeFilter === 'Top 100' &&
+              renderSection('Top 100', <X className="w-6 h-6" />, 'slate', (r) => candidateRatings[r.candidate.candidate_id] === 'Top 100')}
 
             {allRatedCandidatesArePurchased && (
                 <div className="mt-8 bg-blue-50 border-2 border-blue-200 rounded-xl p-8 animate-in fade-in slide-in-from-bottom-2">
@@ -416,6 +490,7 @@ export const CandidateListPage: React.FC<CandidateListPageProps> = ({
                             isPaymentSelected={paymentIds.has(res.candidate.candidate_id)}
                             isPurchased={purchasedCandidateIds.has(res.candidate.candidate_id)}
                             viewMode={viewMode}
+                            employerProfile={employerProfile}
                             onRate={onUpdateRating}
                             onTogglePayment={onTogglePayment}
                           />

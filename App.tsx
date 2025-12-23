@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Brain, LogOut, Activity } from 'lucide-react';
-import { Candidate, Employer, MatchResult, MatchResultRow } from './types';
+import { Candidate, Employer, MatchResult, MatchResultRow, CandidateExclusion, EmployerProfile } from './types';
 import { processCandidates } from './utils/scoring';
 import { Button } from './components/UI';
 import { candidatesService } from './services/candidatesService';
 import { employersService } from './services/employersService';
 import { matchResultsService } from './services/matchResultsService';
 import { candidateEvaluationService } from './services/candidateEvaluationService';
+import { candidateExclusionsService } from './services/candidateExclusionsService';
+import { employerProfilesService } from './services/employerProfilesService';
 
 // Import Pages & Components
 import { UploadPage } from './pages/UploadPage';
@@ -27,6 +29,8 @@ function App() {
   // Global Data State
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [employers, setEmployers] = useState<Employer[]>([]);
+  const [candidateExclusions, setCandidateExclusions] = useState<CandidateExclusion[]>([]);
+  const [employerProfiles, setEmployerProfiles] = useState<EmployerProfile[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
 
@@ -48,6 +52,8 @@ function App() {
   const [isProcessingMatches, setIsProcessingMatches] = useState(false);
   const [candidatesUploaded, setCandidatesUploaded] = useState(false);
   const [employersUploaded, setEmployersUploaded] = useState(false);
+  const [candidateExclusionsUploaded, setCandidateExclusionsUploaded] = useState(false);
+  const [employerProfilesUploaded, setEmployerProfilesUploaded] = useState(false);
 
   // Computed Values
   const currentJob = employers.find(e => e.job_id === selectedJobId);
@@ -63,12 +69,16 @@ function App() {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [cands, emps] = await Promise.all([
+        const [cands, emps, candExcl, empProf] = await Promise.all([
           candidatesService.getCandidates(),
           employersService.getEmployers(),
+          candidateExclusionsService.getCandidateExclusions(),
+          employerProfilesService.getEmployerProfiles(),
         ]);
         setCandidates(cands);
         setEmployers(emps);
+        setCandidateExclusions(candExcl);
+        setEmployerProfiles(empProf);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -105,7 +115,8 @@ function App() {
             }));
             setMatchResults(enrichedResults.filter((r): r is MatchResult => r !== null));
           } else {
-            const results = processCandidates(candidates, currentJob);
+            const employerProfile = employerProfiles.find(ep => ep.employer_name === currentJob.employer_name) || null;
+            const results = processCandidates(candidates, currentJob, candidateExclusions, employerProfile);
             setMatchResults(results);
             await matchResultsService.saveMatchResults(currentJob.job_id, results);
           }
@@ -135,7 +146,8 @@ function App() {
           setPurchasedCandidateIds(purchasedIds);
         } catch (error) {
           console.error('Error processing match results:', error);
-          const results = processCandidates(candidates, currentJob);
+          const employerProfile = employerProfiles.find(ep => ep.employer_name === currentJob.employer_name) || null;
+          const results = processCandidates(candidates, currentJob, candidateExclusions, employerProfile);
           setMatchResults(results);
         } finally {
           setIsProcessingMatches(false);
@@ -143,7 +155,7 @@ function App() {
       }
     };
     processAndSaveMatches();
-  }, [currentJob, candidates]);
+  }, [currentJob, candidates, candidateExclusions, employerProfiles]);
 
   // View Switch Scroll Top
   useEffect(() => {
@@ -151,7 +163,7 @@ function App() {
   }, [viewMode]);
 
   // Handlers
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'candidates' | 'employers') => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'candidates' | 'employers' | 'candidateExclusions' | 'employerProfiles') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -166,11 +178,21 @@ function App() {
           setCandidates(json);
           setCandidatesUploaded(true);
           await candidatesService.saveCandidates(json);
-        } else {
+        } else if (type === 'employers') {
           if (!Array.isArray(json)) throw new Error("Employers must be an array");
           setEmployers(json);
           setEmployersUploaded(true);
           await employersService.saveEmployers(json);
+        } else if (type === 'candidateExclusions') {
+          if (!Array.isArray(json)) throw new Error("Candidate Exclusions must be an array");
+          setCandidateExclusions(json);
+          setCandidateExclusionsUploaded(true);
+          await candidateExclusionsService.saveCandidateExclusions(json);
+        } else if (type === 'employerProfiles') {
+          if (!Array.isArray(json)) throw new Error("Employer Profiles must be an array");
+          setEmployerProfiles(json);
+          setEmployerProfilesUploaded(true);
+          await employerProfilesService.saveEmployerProfiles(json);
         }
         setIsSaving(false);
       } catch (err) {
@@ -423,6 +445,8 @@ function App() {
                    candidateRatings={candidateRatings}
                    purchasedCandidateIds={purchasedCandidateIds}
                    jobId={currentJob.job_id}
+                   employerName={currentJob.employer_name}
+                   employerProfiles={employerProfiles}
                    suggestions={suggestions}
                    allRated={allRated}
                    onSetViewMode={setViewMode}
@@ -442,6 +466,8 @@ function App() {
                    candidateRatings={candidateRatings}
                    purchasedCandidateIds={purchasedCandidateIds}
                    jobId={currentJob.job_id}
+                   employerName={currentJob.employer_name}
+                   employerProfiles={employerProfiles}
                    suggestions={suggestions}
                    allRated={allRated}
                    onSetViewMode={setViewMode}
@@ -485,13 +511,17 @@ function App() {
              ) : null}
           </>
         ) : (
-           <UploadPage 
+           <UploadPage
               isLoading={isLoading}
               isSaving={isSaving}
               candidates={candidates}
               employers={employers}
+              candidateExclusions={candidateExclusions}
+              employerProfiles={employerProfiles}
               candidatesUploaded={candidatesUploaded}
               employersUploaded={employersUploaded}
+              candidateExclusionsUploaded={candidateExclusionsUploaded}
+              employerProfilesUploaded={employerProfilesUploaded}
               handleFileUpload={handleFileUpload}
               onProceed={() => employers.length > 0 && setSelectedJobId(employers[0].job_id)}
            />

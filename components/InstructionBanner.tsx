@@ -48,7 +48,7 @@ export const InstructionBanner: React.FC<InstructionBannerProps> = ({ viewMode }
                     </li> */}
                     <li className="flex gap-2">
                         <span className="font-bold text-blue-700">2.</span>
-                        <span><span className="font-bold">Rate All Candidates:</span> Use the rating dropdown to classify each candidate as <span className="font-bold text-green-700">Top Fit</span>, <span className="font-bold text-orange-700">Maybe</span>, or <span className="font-bold text-red-700">Not a Fit</span> based on your evaluation.</span>
+                        <span><span className="font-bold">Rate All Candidates:</span> Use the rating dropdown to classify each candidate as <span className="font-bold text-green-700">Top 10</span>, <span className="font-bold text-cyan-700">Top 20</span>, <span className="font-bold text-orange-700">Top 50</span>, or <span className="font-bold text-slate-700">Top 100</span> based on your evaluation.</span>
                     </li>
                     <li className="flex gap-2">
                         <span className="font-bold text-blue-700">3.</span>
@@ -70,7 +70,7 @@ export const InstructionBanner: React.FC<InstructionBannerProps> = ({ viewMode }
                 <ol className="space-y-1.5 text-blue-900/80 text-sm">
                     <li className="flex gap-2">
                         <span className="font-bold text-blue-700">1.</span>
-                        <span><span className="font-bold">Review Rated Candidates:</span> All rated candidates are grouped by their ratings (<span className="font-bold text-green-700">Top Fit</span>, <span className="font-bold text-orange-700">Maybe</span>, <span className="font-bold text-red-700">Not a Fit</span>, or <span className="font-bold">Unrated</span>).</span>
+                        <span><span className="font-bold">Review Rated Candidates:</span> All rated candidates are grouped by their ratings (<span className="font-bold text-green-700">Top 10</span>, <span className="font-bold text-cyan-700">Top 20</span>, <span className="font-bold text-orange-700">Top 50</span>, <span className="font-bold text-slate-700">Top 100</span>, or <span className="font-bold">Unrated</span>).</span>
                     </li>
                     <li className="flex gap-2">
                         <span className="font-bold text-blue-700">2.</span>
